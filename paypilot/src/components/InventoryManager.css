@@ -1,0 +1,14 @@
+.table {
+  background-color: #2c3e50; /* Dark background for the table */
+  color: #ecf0f1; /* Light text color */
+}
+
+.table th {
+  background-color: #34495e !important;  /* Darker background for table headers */
+  color: #ecf0f1; /* Light text color for headers */
+}
+
+.table tbody tr:hover {
+  background-color: #1abc9c; /* Highlight color on row hover */
+  color: #ffffff; /* Text color on hover */
+}

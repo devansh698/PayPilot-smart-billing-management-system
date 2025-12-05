@@ -1,0 +1,104 @@
+/* Overview.css */
+
+.overview-container {
+    background-color: #ffffff; /* White background */
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-gap: 20px;
+    margin-bottom: 40px;
+}
+
+.metric {
+    background-color: #f0f0f0; /* Light gray background */
+    color: #333; /* Dark text */
+    padding: 20px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.metric svg {
+    font-size: 24px;
+    margin-right: 10px;
+}
+
+.metric span {
+    font-size: 18px;
+    color: #333; /* Dark text */
+}
+
+.chart-container {
+    display: flex;
+    flex-direction: row; /* Update to column layout */
+    align-items: center;
+}
+
+.chart-col {
+    margin: 20px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #ffffff; /* White background */
+    padding: 1rem;
+    border: 3px solid #ddd; /* Light gray border */
+    width: 30%;
+    height: 100%; /* Update to 100% height */
+    overflow: auto; /* Add overflow property */
+}
+
+.recharts-wrapper {
+    width: 100%; /* Update to 100% width */
+    height: 100%; /* Update to 100% height */
+}
+
+h2 {
+    color: #333; /* Dark text */
+    margin-bottom: 10px;
+}
+
+.recharts-wrapper {
+    width: 250px;
+    height: 200px;
+}
+
+.recharts-line {
+    stroke: #8884d8; /* Default line color */
+}
+
+.recharts-line:nth-child(2) {
+    stroke: #82ca9d; /* Second line color */
+}
+
+.recharts-xaxis,
+.recharts-yaxis {
+    stroke: #ccc; /* Light gray axis color */
+}
+
+.recharts-tooltip {
+    background-color: #ffffff; /* White background */
+    border-radius: 10px;
+    padding: 10px;
+    color: #333; /* Dark text */
+}
+
+.recharts-legend {
+    font-size: 14px;
+    color: #333; /* Dark text */
+}
+
+.PieChart {
+    background-color: #ffffff; /* White background */
+}
+
+.recharts-surface {
+    background-color: #ffffff !important; /* White background */
+    color: #333; /* Dark text */
+}

@@ -1,0 +1,162 @@
+/* ClientLogin.css */
+.login-container {
+    display: flex;
+    min-height: 100vh;
+    background-color: #f8fafc;
+  }
+  
+  .login-content {
+    display: flex;
+    width: 100%;
+  }
+  
+  .login-form-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4rem;
+    max-width: 600px;
+  }
+  
+  .login-header {
+    margin-bottom: 2rem;
+  }
+  
+  .login-header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.5rem;
+  }
+  
+  .login-header p {
+    color: #64748b;
+    font-size: 1rem;
+  }
+  
+  .login-form {
+    width: 100%;
+  }
+  
+  .form-label {
+    display: flex;
+    align-items: center;
+    color: #475569;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+  }
+  
+  .input-icon {
+    margin-right: 0.5rem;
+    color: #64748b;
+  }
+  
+  .form-input {
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  
+  .form-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  }
+  
+  .login-btn {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 8px;
+    font-weight: 500;
+    margin-top: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .btn-icon {
+    margin-left: 0.5rem;
+  }
+  
+  .btn-loader {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  .otp-note {
+    color: #64748b;
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+  }
+  
+  .resend-link {
+    background: none;
+    border: none;
+    color: #3b82f6;
+    font-size: 0.875rem;
+    margin-top: 1rem;
+    cursor: pointer;
+    padding: 0;
+    text-align: center;
+    width: 100%;
+  }
+  
+  .resend-link:hover {
+    text-decoration: underline;
+  }
+  
+  .login-alert {
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+  }
+  
+  .login-graphic {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f1f5f9;
+    padding: 2rem;
+  }
+  
+  .success-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  
+  .success-animation {
+    width: 300px;
+    height: 300px;
+  }
+  
+  @media (max-width: 992px) {
+    .login-content {
+      flex-direction: column;
+    }
+    
+    .login-form-container {
+      padding: 2rem;
+      max-width: 100%;
+    }
+    
+    .login-graphic {
+      display: none;
+    }
+  }
