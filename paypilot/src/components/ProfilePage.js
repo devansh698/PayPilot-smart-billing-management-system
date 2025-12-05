@@ -1,107 +1,135 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Form, FormGroup, Label, Input, Button, Alert } from 'reactstrap';
-import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../components/ThemeContext'; // Import useTheme
+import axios from 'axios';
+import { 
+    Container, Row, Col, Form, FormGroup, Label, Input, Button, Card, CardBody, Badge 
+} from 'reactstrap';
+import { FaUserCircle, FaLock, FaSave, FaUserEdit } from 'react-icons/fa';
+import { toast } from 'react-toastify';
+import { useAuth } from '../context/AuthContext'; // Assuming you have this, otherwise remove
+import LoadingPage from './LoadingPage';
 
 const ProfilePage = () => {
-    const { user, error, logout } = useAuth();
-    const [profile, setProfile] = useState({ _id: '', username: '', email: '', phone: '' });
+    const [profile, setProfile] = useState({});
     const [loading, setLoading] = useState(true);
-    const [password, setPassword] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    const [passwordError, setPasswordError] = useState(null);
-    const { setTheme } = useTheme();
+    const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
+    const [updating, setUpdating] = useState(false);
 
-    const handleFetch = async () => {
-        const token = localStorage.getItem('token');
-        if (!token) return;
+    useEffect(() => {
+        fetchProfile();
+    }, []);
 
-        const headers = new Headers({ 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' });
-        const request = new Request('/api/auth/me', { method: 'GET', headers: headers });
-
+    const fetchProfile = async () => {
         try {
-            const response = await fetch(request);
-            const data = await response.json();
-            setProfile(data);
+            // Axios interceptor in App.js handles the token
+            const res = await axios.get('/api/auth/me');
+            setProfile(res.data);
             setLoading(false);
         } catch (error) {
-            console.error(error);
+            toast.error("Failed to load profile data.");
+            setLoading(false);
         }
     };
 
-    useEffect(() => {
-        handleFetch();
-    }, []);
-
-    const handleChangePassword = async () => {
-        setPasswordError(null);
-        if (password.newPassword !== password.confirmPassword) {
-            setPasswordError('New password and confirm password do not match');
+    const handlePasswordChange = async (e) => {
+        e.preventDefault();
+        if (passwords.new !== passwords.confirm) {
+            toast.error("New passwords do not match!");
             return;
         }
 
-        const headers = new Headers({ 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' });
-        const request = new Request(`/api/user/${profile._id}/change-password`, {
-            method: 'PATCH',
-            headers: headers,
-            body: JSON.stringify({ oldPassword: password.currentPassword, newPassword: password.newPassword }),
-        });
-
+        setUpdating(true);
         try {
-            const response = await fetch(request);
-            if (response.ok) {
-                alert('Password changed successfully!');
-                setPassword({ currentPassword: '', newPassword: '', confirmPassword: '' });
-            } else {
-                const errorData = await response.json();
-                setPasswordError(errorData.message);
-            }
+            await axios.patch(`/api/user/${profile._id}/change-password`, {
+                oldPassword: passwords.current,
+                newPassword: passwords.new
+            });
+            toast.success("Password updated successfully!");
+            setPasswords({ current: '', new: '', confirm: '' });
         } catch (error) {
-            console.error(error);
+            toast.error(error.response?.data?.message || "Failed to update password");
+        } finally {
+            setUpdating(false);
         }
     };
 
+    if (loading) return <LoadingPage />;
+
     return (
-        <Container className="mt-5">
+        <Container fluid className="mt-4">
+            <h2 className="mb-4"><FaUserEdit className="me-2"/> My Profile</h2>
+            
             <Row>
-                <Col md={6}>
-                    {loading ? (
-                        <h2>Loading...</h2>
-                    ) : (
-                        <div>
-                            <h2>Profile</h2>
-                            <p><strong>Username:</strong> {profile.username}</p>
-                            <p><strong>Email:</strong> {profile.email}</p>
-                            <p><strong>Phone:</strong> {profile.phone}</p>
-                            <p><strong>Address:</strong> {profile.address}</p>
-                            <Button onClick={logout} color="danger">Logout</Button>
-                            {error && <Alert color="danger">{error}</Alert>}
-                        </div>
-                    )}
+                {/* Profile Details Card */}
+                <Col md={6} className="mb-4">
+                    <Card className="shadow-sm border-0 h-100">
+                        <CardBody className="text-center p-5">
+                            <div className="mb-4">
+                                <FaUserCircle size={100} className="text-primary opacity-50" />
+                            </div>
+                            <h3>{profile.username}</h3>
+                            <Badge color="info" className="mb-3">{profile.role || 'User'}</Badge>
+                            
+                            <div className="text-start mt-4 px-md-5">
+                                <FormGroup>
+                                    <Label className="text-muted small">Email Address</Label>
+                                    <Input value={profile.email} disabled className="bg-light" />
+                                </FormGroup>
+                                <FormGroup>
+                                    <Label className="text-muted small">Phone Number</Label>
+                                    <Input value={profile.phone || 'N/A'} disabled className="bg-light" />
+                                </FormGroup>
+                                <FormGroup>
+                                    <Label className="text-muted small">Member Since</Label>
+                                    <Input value={new Date(profile.createdAt || Date.now()).toLocaleDateString()} disabled className="bg-light" />
+                                </FormGroup>
+                            </div>
+                        </CardBody>
+                    </Card>
                 </Col>
-                <Col md={6}>
-                    <h2>Change Password</h2>
-                    <Form onSubmit={(e) => { e.preventDefault(); handleChangePassword(); }}>
-                        <FormGroup>
-                            <Label>Current Password</Label>
-                            <Input type="password" value={password.currentPassword} onChange={(e) => setPassword({ ...password, currentPassword: e.target.value })} required />
-                        </FormGroup>
-                        <FormGroup>
-                            <Label>New Password</Label>
-                            <Input type="password" value={password.newPassword} onChange={(e) => setPassword({ ...password, newPassword: e.target.value })} required />
-                        </FormGroup>
-                        <FormGroup>
-                            <Label>Confirm New Password</Label>
-                            <Input type="password" value={password.confirmPassword} onChange={(e) => setPassword({ ...password, confirmPassword: e.target.value })} required />
-                        </FormGroup>
-                        <Button type="submit" color="primary">Change Password</Button>
-                        {passwordError && <Alert color="danger">{passwordError}</Alert>}
-                    </Form>
-                </Col>
-            </Row>
-            <Row className="mt-4">
-                <Col md={12}>
-                    <Button color="light" onClick={() => setTheme('light')}>Light Theme</Button>
-                    <Button color="dark" onClick={() => setTheme('dark')}>Dark Theme</Button>
+
+                {/* Security Settings Card */}
+                <Col md={6} className="mb-4">
+                    <Card className="shadow-sm border-0 h-100">
+                        <CardBody className="p-4">
+                            <h4 className="mb-4"><FaLock className="me-2"/> Security Settings</h4>
+                            <Form onSubmit={handlePasswordChange}>
+                                <FormGroup>
+                                    <Label>Current Password</Label>
+                                    <Input 
+                                        type="password" 
+                                        value={passwords.current}
+                                        onChange={e => setPasswords({...passwords, current: e.target.value})}
+                                        required
+                                    />
+                                </FormGroup>
+                                <hr className="my-4"/>
+                                <FormGroup>
+                                    <Label>New Password</Label>
+                                    <Input 
+                                        type="password" 
+                                        value={passwords.new}
+                                        onChange={e => setPasswords({...passwords, new: e.target.value})}
+                                        required
+                                        minLength="6"
+                                    />
+                                </FormGroup>
+                                <FormGroup>
+                                    <Label>Confirm New Password</Label>
+                                    <Input 
+                                        type="password" 
+                                        value={passwords.confirm}
+                                        onChange={e => setPasswords({...passwords, confirm: e.target.value})}
+                                        required
+                                    />
+                                </FormGroup>
+
+                                <Button color="warning" block type="submit" disabled={updating} className="mt-3">
+                                    <FaSave className="me-2"/> 
+                                    {updating ? "Updating..." : "Change Password"}
+                                </Button>
+                            </Form>
+                        </CardBody>
+                    </Card>
                 </Col>
             </Row>
         </Container>

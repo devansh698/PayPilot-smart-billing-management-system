@@ -1,129 +1,129 @@
 import React, { useState } from 'react';
-import { Container, Form, FormGroup, Label, Input, Button, Alert } from 'reactstrap';
+import axios from 'axios';
+import { Container, Form, FormGroup, Label, Input, Button, Card, CardBody, Row, Col } from 'reactstrap';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faBoxOpen } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 
 const AddProduct = () => {
-  const [productName, setProductName] = useState('');
-  const [price, setPrice] = useState(0);
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
-  const [brand, setBrand] = useState('');
+  const [formData, setFormData] = useState({
+    name: '',
+    price: '',
+    description: '',
+    category: '',
+    brand: ''
+  });
   const [image, setImage] = useState(null);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const apiUrl = '/api/product';
+  const handleInputChange = (e) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({ ...prev, [id]: value }));
+  };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleFileChange = (e) => {
+    setImage(e.target.files[0]);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.price) {
+        toast.warning("Name and Price are required.");
+        return;
+    }
+
+    setLoading(true);
+    const data = new FormData();
+    data.append('name', formData.name);
+    data.append('price', formData.price);
+    data.append('description', formData.description);
+    data.append('category', formData.category);
+    data.append('brand', formData.brand);
+    if (image) data.append('image', image);
+
     try {
-      const formData = new FormData();
-      formData.append('image', image);
-      formData.append('name', productName);
-      formData.append('price', price);
-      formData.append('description', description);
-      formData.append('category', category);
-      formData.append('brand', brand);
-
-      const response = await fetch(`${apiUrl}/`, {
-        method: 'POST',
-        body: formData,
+      await axios.post('/api/product/', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-      const product = await response.json();
-      if (!response.ok) throw new Error(product.message);
-      alert('Product added successfully!');
-      setProductName('');
-      setPrice(0);
-      setDescription('');
-      setCategory('');
-      setBrand('');
-      setImage(null);
+      toast.success('Product added successfully!');
+      navigate('/product-management'); // Redirect to list
     } catch (error) {
-      setError(error.message);
+      toast.error(error.response?.data?.message || "Failed to add product");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Price validation
-  const isValidPrice = (price) => price > 0;
-
   return (
-    <Container className="mt-5">
-      <h2 className="text-center mb-4"><FontAwesomeIcon icon={faPlus} /> Add Product</h2>
-      <div className="card p-4">
-        <Form onSubmit={handleSubmit}>
-          <FormGroup>
-            <Label for="productName">Product Name</Label>
-            <Input
-              type="text"
-              id="productName"
-              placeholder="Enter product name"
-              value={productName}
-              onChange={(event) => setProductName(event.target.value)}
-              required
-            />
-          </FormGroup>
-          <FormGroup>
-            <Label for="price">Price</Label>
-            <Input
-              type="number"
-              id="price"
-              placeholder="Enter price"
-              value={price}
-              onChange={(event) => setPrice(event.target.value)}
-              required
-              invalid={!isValidPrice(price) && price > 0} // Real-time validation
-            />
-          </FormGroup>
-          <FormGroup>
-            <Label for="description">Description</Label>
-            <Input
-              type="textarea"
-              id="description"
-              placeholder="Enter product description"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              required
-            />
-          </FormGroup>
-          <FormGroup>
-            <Label for="category">Category</Label>
-            <Input
-              type="select"
-              id="category"
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-              required
-            >
-              <option value="">Select category</option>
-              <option value="Electronics">Electronics</option>
-              <option value="Fashion">Fashion</option>
-              <option value="Home">Home</option>
-            </Input>
-          </FormGroup>
-          <FormGroup>
-            <Label for="brand">Brand</Label>
-            <Input
-              type="text"
-              id="brand"
-              placeholder="Enter brand name"
-              value={brand}
-              onChange={(event) => setBrand(event.target.value)}
-              required
-            />
-          </FormGroup>
-          <FormGroup>
-            <Label for="image">Image</Label>
-            <Input
-              type="file"
-              id="image"
-              onChange={(event) => setImage(event.target.files[0])}
-              required
-            />
-          </FormGroup>
-          {error && <Alert color="danger">{error}</Alert>}
-          <Button type="submit" color="primary">Add Product</Button>
-        </Form>
-      </div>
+    <Container className="mt-4">
+      <Card className="shadow-sm border-0">
+        <CardBody className="p-4">
+            <div className="text-center mb-4">
+                <h2 className="text-primary"><FontAwesomeIcon icon={faBoxOpen} /> Add New Product</h2>
+                <p className="text-muted">Enter product details to add to inventory</p>
+            </div>
+            
+            <Form onSubmit={handleSubmit}>
+              <Row>
+                  <Col md={6}>
+                      <FormGroup>
+                        <Label for="name">Product Name *</Label>
+                        <Input id="name" value={formData.name} onChange={handleInputChange} required />
+                      </FormGroup>
+                  </Col>
+                  <Col md={6}>
+                      <FormGroup>
+                        <Label for="price">Price *</Label>
+                        <Input type="number" id="price" value={formData.price} onChange={handleInputChange} required />
+                      </FormGroup>
+                  </Col>
+              </Row>
+
+              <FormGroup>
+                <Label for="description">Description</Label>
+                <Input type="textarea" id="description" rows="3" value={formData.description} onChange={handleInputChange} />
+              </FormGroup>
+
+              <Row>
+                  <Col md={6}>
+                      <FormGroup>
+                        <Label for="category">Category</Label>
+                        <Input type="select" id="category" value={formData.category} onChange={handleInputChange}>
+                          <option value="">Select Category</option>
+                          <option value="Electronics">Electronics</option>
+                          <option value="Fashion">Fashion</option>
+                          <option value="Home & Garden">Home & Garden</option>
+                          <option value="Automotive">Automotive</option>
+                          <option value="Others">Others</option>
+                        </Input>
+                      </FormGroup>
+                  </Col>
+                  <Col md={6}>
+                      <FormGroup>
+                        <Label for="brand">Brand</Label>
+                        <Input type="text" id="brand" value={formData.brand} onChange={handleInputChange} />
+                      </FormGroup>
+                  </Col>
+              </Row>
+
+              <FormGroup>
+                <Label for="image">Product Image</Label>
+                <Input type="file" id="image" onChange={handleFileChange} />
+                <small className="text-muted">Supported formats: JPG, PNG</small>
+              </FormGroup>
+
+              <div className="d-flex justify-content-end mt-4">
+                  <Button color="secondary" className="me-2" onClick={() => navigate('/product-management')}>Cancel</Button>
+                  <Button color="primary" type="submit" disabled={loading}>
+                      <FontAwesomeIcon icon={faPlus} className="me-2" /> 
+                      {loading ? "Adding..." : "Add Product"}
+                  </Button>
+              </div>
+            </Form>
+        </CardBody>
+      </Card>
     </Container>
   );
 };

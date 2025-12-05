@@ -1,70 +1,98 @@
-import React, { useState, useEffect } from "react";
-import { Container, Button, Table, Alert } from "reactstrap";
+import React, { useState } from "react";
+import axios from "axios";
+import { Container, Button, Table, Row, Col, Card, CardBody, Alert } from "reactstrap";
+import { FaChartBar, FaCalendarAlt } from "react-icons/fa";
 
-const SalesReport = () => {
+const ReportGenerator = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [salesReports, setSalesReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchSalesReports = async () => {
+  const fetchSalesReports = async (e) => {
+    e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
-      const response = await fetch(`/api/sales-reports?startDate=${startDate}&endDate=${endDate}`);
-      const data = await response.json();
-      setSalesReports(data);
+      const response = await axios.get(`/api/sales-reports?startDate=${startDate}&endDate=${endDate}`);
+      setSalesReports(response.data);
     } catch (err) {
-      setError("Failed to fetch sales reports");
+      setError("Failed to generate report. Please check date range.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    fetchSalesReports();
-  };
+  // Calculate totals
+  const grandTotalSales = salesReports.reduce((acc, curr) => acc + curr.totalSales, 0);
+  const grandTotalOrders = salesReports.reduce((acc, curr) => acc + curr.totalOrders, 0);
 
   return (
-    <Container className="mt-5">
-      <h4>Sales Report</h4>
+    <Container fluid>
+      <h2 className="mb-4"><FaChartBar className="me-2"/> Sales Report</h2>
+      
+      <Card className="mb-4 shadow-sm">
+        <CardBody>
+          <form onSubmit={fetchSalesReports}>
+            <Row className="align-items-end">
+                <Col md={4}>
+                    <label>Start Date</label>
+                    <div className="input-group">
+                        <span className="input-group-text"><FaCalendarAlt/></span>
+                        <input type="date" className="form-control" value={startDate} onChange={e => setStartDate(e.target.value)} required />
+                    </div>
+                </Col>
+                <Col md={4}>
+                    <label>End Date</label>
+                    <div className="input-group">
+                        <span className="input-group-text"><FaCalendarAlt/></span>
+                        <input type="date" className="form-control" value={endDate} onChange={e => setEndDate(e.target.value)} required />
+                    </div>
+                </Col>
+                <Col md={4}>
+                    <Button color="primary" type="submit" disabled={loading} block>
+                        {loading ? "Generating..." : "Generate Report"}
+                    </Button>
+                </Col>
+            </Row>
+          </form>
+        </CardBody>
+      </Card>
+
       {error && <Alert color="danger">{error}</Alert>}
-      <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label>Start Date</label>
-          <input type="date" className="form-control" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-        </div>
-        <div className="form-group">
-          <label>End Date</label>
-          <input type="date" className="form-control" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
-        </div>
-        <Button type="submit" color="primary">Generate Report</Button>
-      </form>
-      {loading ? (
-        <p>Loading reports...</p>
-      ) : (
-        <Table striped bordered hover className="mt-4">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Total Sales</th>
-              <th>Total Orders</th>
-            </tr>
-          </thead>
-          <tbody>
-            {salesReports.map((report) => (
-              <tr key={report.date}>
-                <td>{report.date}</td>
-                <td>Rs. {report.totalSales}</td>
-                <td>{report.totalOrders}</td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+
+      {salesReports.length > 0 && (
+          <Card className="shadow-sm border-0">
+            <CardBody>
+                <Table striped bordered responsive className="text-center">
+                    <thead className="table-dark">
+                        <tr>
+                            <th>Date</th>
+                            <th>Total Sales</th>
+                            <th>Orders Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {salesReports.map((report, idx) => (
+                            <tr key={idx}>
+                                <td>{report.date}</td>
+                                <td>Rs. {report.totalSales.toLocaleString()}</td>
+                                <td>{report.totalOrders}</td>
+                            </tr>
+                        ))}
+                        <tr className="table-active fw-bold">
+                            <td>TOTAL</td>
+                            <td>Rs. {grandTotalSales.toLocaleString()}</td>
+                            <td>{grandTotalOrders}</td>
+                        </tr>
+                    </tbody>
+                </Table>
+            </CardBody>
+          </Card>
       )}
     </Container>
   );
 };
 
-export default SalesReport;
+export default ReportGenerator;

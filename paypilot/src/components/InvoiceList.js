@@ -1,164 +1,107 @@
 import React, { useEffect, useState } from "react";
-import {
-  Container,
-  Table,
-  Button,
-  Modal,
-  Alert,
-} from "reactstrap";
 import axios from "axios";
-import Lottie from "lottie-react";
-import loadingAnimation from './animation/Animation - loading.json';
-import animationData from './animation/Animation - invoice list.json';
-import './InvoiceList.css';
+import { Container, Table, Button, Modal, ModalHeader, ModalBody, ModalFooter, Input, Badge, Card, CardBody } from "reactstrap";
+import { FaPrint, FaEye, FaSearch, FaFileInvoiceDollar } from "react-icons/fa";
+import LoadingPage from "./LoadingPage"; // Reuse your loading component
 
 const InvoiceList = () => {
   const [invoices, setInvoices] = useState([]);
+  const [filteredInvoices, setFilteredInvoices] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [detailsModal, setDetailsModal] = useState(false);
-  const [invoiceDetails, setInvoiceDetails] = useState(null);
-  const [productDetails, setProductDetails] = useState([]);
-  const [error, setError] = useState('');
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchInvoices();
+  }, []);
 
   const fetchInvoices = async () => {
     try {
       const response = await axios.get('/api/invoices/');
       setInvoices(response.data);
-      setLoading(false);
+      setFilteredInvoices(response.data);
     } catch (error) {
       console.error('Error fetching invoices:', error);
-      setError('Failed to fetch invoices. Please try again later.');
+    } finally {
       setLoading(false);
     }
   };
 
-  const toggleDetailsModal = () => setDetailsModal(!detailsModal);
+  const handleSearch = (e) => {
+    const term = e.target.value.toLowerCase();
+    setSearchTerm(term);
+    const filtered = invoices.filter(inv => 
+      inv.client.firstName.toLowerCase().includes(term) || 
+      inv.invoiceNo.includes(term)
+    );
+    setFilteredInvoices(filtered);
+  };
 
-  const viewInvoiceDetails = async (invoiceId) => {
-    try {
-        const response = await axios.get(`/api/invoices/`);
-        const invoice = response.data.find((invoice) => invoice._id === invoiceId);
-        if (!invoice) {
-            alert('Invoice not found');
-            return;
-        }
-        setInvoiceDetails(invoice);
-        setSelectedInvoice(invoice);
+  const viewInvoiceDetails = (invoice) => {
+    setSelectedInvoice(invoice);
+    setDetailsModal(true);
+  };
 
-        // Fetch product details
-        const details = await Promise.all(invoice.products.map(async (product) => {
-            const productDetail = await findproduct(product.product);
-            return {
-                ...product,
-                name: productDetail.name,
-                price: productDetail.price
-            };
-        }));
-        setProductDetails(details); // Set the fetched product details
-        toggleDetailsModal();
-    } catch (error) {
-        console.error('Error fetching invoice details:', error);
-    }
-};
-
-const findproduct = async (productId) => {
-    try {
-        const response = await axios.get(`http://localhost:3000/api/product/${productId}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error fetching product details:', error);
-    }
-};
-
-const generatePrintableBill = async() => {
-    if (!invoiceDetails) {
-        return; // Ensure invoice details are available
-    }
-
-    // Assuming invoiceDetails contains products, subtotal, tax, and totalAmount
-    const { products, subtotal = 0, tax = 0, totalAmount = 0 } = invoiceDetails;
-
-    const productRows = await Promise.all(products.map(async (product) => {
-        const productDetails = await findproduct(product.product);
-        return `
-        <tr>
-            <td>${productDetails.name || "Unknown Product"}</td>
-            <td>${product.quantity || 0}</td>
-            <td>Rs.${(productDetails.price || 0).toFixed(2)}</td>
-            <td>Rs.${((productDetails.price || 0) * (product.quantity || 0)).toFixed(2)}</td>
-        </tr>
-    `;
-    })).then(rows => rows.join(''));
-
+  const generatePrintableBill = () => {
+    if (!selectedInvoice) return;
+    
+    // Construct the print content
     const billContent = `
         <html>
         <head>
-            <title>Invoice Bill</title>
+            <title>Invoice #${selectedInvoice.invoiceNo}</title>
             <style>
-                body { font-family: Arial, sans-serif; margin: 20px; }
-                .header { text-align: center; margin-bottom: 20px; }
-                .header img { max-width: 150px; }
-                .company-details, .client-details { margin-bottom: 20px; }
-                .company-details h2, .client-details h2 { margin: 0; }
-                .company-details p, .client-details p { margin: 5px 0; }
-                .invoice-details { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; }
-                .footer { text-align: center; margin-top: 30px; }
-                .footer p { margin: 5px 0; }
-                .total { font-weight: bold; font-size: 1.2em; }
-                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-                th { background-color: #f2f2f2; }
+                body { font-family: 'Helvetica', sans-serif; padding: 40px; }
+                .header { display: flex; justify-content: space-between; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+                .company-info h1 { margin: 0; color: #333; }
+                .invoice-meta { text-align: right; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #ddd; }
+                td { padding: 12px; border-bottom: 1px solid #eee; }
+                .totals { margin-top: 30px; text-align: right; }
+                .total-row { font-size: 1.2em; font-weight: bold; color: #007bff; }
             </style>
         </head>
         <body>
             <div class="header">
-                <img src="./logo.png" alt="Company Logo" />
-                <h1>Your Company Name</h1>
-                <p>Your Company Address</p>
-                <p>Your Company Phone</p>
-                <p>Your Company Email</p>
+                <div class="company-info">
+                    <h1>PayPilot</h1>
+                    <p>123 Business Rd, Tech City</p>
+                </div>
+                <div class="invoice-meta">
+                    <h2>INVOICE</h2>
+                    <p>#${selectedInvoice.invoiceNo}</p>
+                    <p>Date: ${new Date(selectedInvoice.date).toLocaleDateString()}</p>
+                </div>
             </div>
-            <div class="company-details">
-                <h2>Company Details</h2>
-                <p>Your Company Name</p>
-                <p>Your Company Address</p>
-                <p>Your Company Phone</p>
-                <p>Your Company Email</p>
+            
+            <div class="client-info">
+                <h3>Bill To:</h3>
+                <p><strong>${selectedInvoice.client.firstName} ${selectedInvoice.client.lastName}</strong><br>
+                ${selectedInvoice.client.email}</p>
             </div>
-            <div class="client-details">
-                <h2>Client Details</h2>
-                <p><strong>Client Name:</strong> ${invoiceDetails.client.firstName} ${invoiceDetails.client.lastName || "Unknown"}</p>
-                <p><strong>Client Email:</strong> ${invoiceDetails.client.email || "N/A"}</p>
-                <p><strong>Client Address:</strong> ${invoiceDetails.client.company.address || "N/A"}</p>
-                <p><strong>GST No:</strong> ${invoiceDetails.client.company.gstNumber || "N/A"}</p>
-            </div>
-            <div class="invoice-details">
-                <h2>Invoice Details</h2>
-                <p><strong>Invoice No:</strong> ${invoiceDetails.invoiceNo || "N/A"}</p>
-                <p><strong>Date:</strong> ${new Date(invoiceDetails.date).toLocaleDateString()}</p>
-            </div>
+
             <table>
                 <thead>
-                    <tr>
-                        <th>Product/Service</th>
-                        <th>Quantity</th>
-                        <th>Unit Price</th>
- <th>Subtotal</th>
-                    </tr>
+                    <tr><th>Item</th><th>Qty</th><th>Rate</th><th>Total</th></tr>
                 </thead>
                 <tbody>
-                    ${productRows}
+                    ${selectedInvoice.products.map(p => `
+                        <tr>
+                            <td>${p.product?.name || 'Item'}</td>
+                            <td>${p.quantity}</td>
+                            <td>${p.rate}</td>
+                            <td>${p.amount}</td>
+                        </tr>
+                    `).join('')}
                 </tbody>
             </table>
-            <div class="invoice-details">
-                <p><strong>Subtotal:</strong> Rs.${subtotal.toFixed(2)}</p>
-                <p><strong>Tax:</strong> Rs.${tax.toFixed(2)}</p>
-                <p class="total"><strong>Total Amount:</strong> Rs.${totalAmount.toFixed(2)}</p>
-            </div>
-            <div class="footer">
-                <p>Thank you for your business!</p>
-                <p class="thank-you">We appreciate your prompt payment.</p>
+
+            <div class="totals">
+                <p>Subtotal: ${selectedInvoice.subtotal}</p>
+                <p>Tax (18%): ${selectedInvoice.tax}</p>
+                <p class="total-row">Total: ${selectedInvoice.totalAmount}</p>
             </div>
         </body>
         </html>
@@ -168,88 +111,97 @@ const generatePrintableBill = async() => {
     printWindow.document.write(billContent);
     printWindow.document.close();
     printWindow.print();
-};
+  };
 
-  useEffect(() => {
-    fetchInvoices();
-  }, []);
+  if (loading) return <LoadingPage />;
 
   return (
-    <Container className="mt-5">
-      <h1 className="page-title">Invoices</h1>
-      {error && <Alert color="danger">{error}</Alert>}
-      {loading ? (
-        <div className="loading-container">
-          <Lottie animationData={loadingAnimation} loop={true} autoplay={true} height={400} width={400} />
+    <Container fluid>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2><FaFileInvoiceDollar className="me-2"/> Invoice History</h2>
+        <div style={{ width: '300px' }}>
+            <Input 
+                placeholder="Search Client or Invoice #..." 
+                value={searchTerm}
+                onChange={handleSearch}
+                prefix={<FaSearch />}
+            />
         </div>
-      ) : (
-        <div style={{ display: 'flex' }}>
-          <Table className="table table-light" style={{width:"65%"}}>
-            <thead>
+      </div>
+
+      <Card className="shadow-sm border-0">
+        <CardBody>
+          <Table hover responsive>
+            <thead className="table-light">
               <tr>
-                <th>Client Name</th>
-                <th>Invoice No.</th>
+                <th>Invoice #</th>
+                <th>Client</th>
                 <th>Date</th>
-                <th>Total Amount</th>
-                <th>Action</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {invoices.map((invoice) => (
+              {filteredInvoices.map((invoice) => (
                 <tr key={invoice._id}>
-                  <td>{invoice.client.firstName}</td>
-                  <td>{invoice.invoiceNo}</td>
+                  <td className="fw-bold">{invoice.invoiceNo}</td>
+                  <td>{invoice.client.firstName} {invoice.client.lastName}</td>
                   <td>{new Date(invoice.date).toLocaleDateString()}</td>
-                  <td>Rs.{invoice.totalAmount}</td>
+                  <td>${invoice.totalAmount.toFixed(2)}</td>
                   <td>
-                    <Button color="primary" onClick={() => viewInvoiceDetails(invoice._id)}> View Details</Button>
+                    <Badge color={invoice.paymentStatus === 'Paid' ? 'success' : 'warning'}>
+                        {invoice.paymentStatus}
+                    </Badge>
+                  </td>
+                  <td>
+                    <Button size="sm" color="info" outline onClick={() => viewInvoiceDetails(invoice)}>
+                        <FaEye />
+                    </Button>
                   </td>
                 </tr>
               ))}
+              {filteredInvoices.length === 0 && <tr><td colSpan="6" className="text-center">No invoices found.</td></tr>}
             </tbody>
           </Table>
-          <div style={{width:"40%",padding:"15% 0 10% 0"}}>
-            <Lottie
-              animationData={animationData} style={{width:"100%"}}
-            />
-          </div>
-        </div>
-      )}
+        </CardBody>
+      </Card>
 
-      <Modal isOpen={detailsModal} toggle={toggleDetailsModal} style={{ maxWidth: '800px', margin: '30px auto',marginTop:"140px"
-      }}>
-        <div className="modal-header">
-          <h5 className="modal-title">Invoice Details</h5>
-        </div>
-        <div className="modal-body">
-        {invoiceDetails && (
-                    <div>
-                        <h5>Invoice No: {invoiceDetails.invoiceNo}</h5>
-                        <p>Client Name: {invoiceDetails.client.firstName} {invoiceDetails.client.lastName}</p>
-                        <p>Client Email: {invoiceDetails.client.email}</p>
-                        <p>Invoice Date: {new Date(invoiceDetails.date).toLocaleDateString()}</p>
-                        <p>Subtotal: Rs.{invoiceDetails.subtotal.toFixed(2)}</p>
-                        <p>Tax: Rs.{invoiceDetails.tax.toFixed(2)}</p>
-                        <p>Total Amount: Rs.{invoiceDetails.totalAmount.toFixed(2)}</p>
-                        <p>Payment Status: {invoiceDetails.paymentStatus}</p>
-                        <p>Products:</p>
-                        <ul>
-                            {productDetails.map(product => (
-                                <li key={product._id}>
-                                    <p>Product Name: {product.name}</p>
-                                    <p>Quantity: {product.quantity}</p>
-                                    <p>Rate: Rs.{product.price}</p>
-                                    <p>Amount: Rs.{product.amount.toFixed(2)}</p>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-        </div>
-        <div className="modal-footer">
-          <Button color="secondary" onClick={toggleDetailsModal}>Close</Button>
-          <Button color="primary" onClick={generatePrintableBill}>Print Bill</Button>
-        </div>
+      <Modal isOpen={detailsModal} toggle={() => setDetailsModal(!detailsModal)} size="lg">
+        <ModalHeader toggle={() => setDetailsModal(!detailsModal)}>Invoice Details</ModalHeader>
+        <ModalBody>
+          {selectedInvoice && (
+            <div>
+               <div className="d-flex justify-content-between">
+                   <h5>Invoice #{selectedInvoice.invoiceNo}</h5>
+                   <Badge color="primary">{selectedInvoice.paymentStatus}</Badge>
+               </div>
+               <hr/>
+               <Table striped>
+                   <thead>
+                       <tr><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr>
+                   </thead>
+                   <tbody>
+                       {selectedInvoice.products.map((p, i) => (
+                           <tr key={i}>
+                               <td>{p.product?.name || "Product"}</td>
+                               <td>{p.quantity}</td>
+                               <td>{p.rate}</td>
+                               <td>{p.amount}</td>
+                           </tr>
+                       ))}
+                   </tbody>
+               </Table>
+               <div className="text-end">
+                   <h4>Total: ${selectedInvoice.totalAmount.toFixed(2)}</h4>
+               </div>
+            </div>
+          )}
+        </ModalBody>
+        <ModalFooter>
+            <Button color="secondary" onClick={() => setDetailsModal(false)}>Close</Button>
+            <Button color="primary" onClick={generatePrintableBill}><FaPrint className="me-2"/> Print</Button>
+        </ModalFooter>
       </Modal>
     </Container>
   );

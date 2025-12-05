@@ -1,74 +1,104 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { List, ListItem, ListItemIcon, ListItemText, Drawer, Box } from '@mui/material';
-import { faHome, faFileInvoice, faBox, faUser, faChartBar, faCog, faWarehouse, faCreditCard } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { FaLock } from 'react-icons/fa';
+import { Link, useLocation } from 'react-router-dom';
+import { 
+    List, ListItem, ListItemButton, ListItemIcon, ListItemText, 
+    Divider, Box, Typography, Avatar 
+} from '@mui/material';
+import { 
+    Dashboard as DashboardIcon, 
+    Receipt as InvoiceIcon, 
+    People as ClientIcon, 
+    Inventory as ProductIcon, 
+    BarChart as ReportIcon, 
+    ShoppingCart as OrderIcon, 
+    Payment as PaymentIcon, 
+    Person as EmployeeIcon, 
+    Warehouse as InventoryIcon,
+    AddCircle as AddIcon
+} from '@mui/icons-material';
 import axios from 'axios';
-import './Sidebar.css';
 
-const Sidebar = () => {
+const Sidebar = ({ open, onClose }) => {
+    const location = useLocation();
     const [userRole, setUserRole] = useState(null);
 
     useEffect(() => {
-            axios.get(`/api/auth/me`,)
-            .then(response => {
-                setUserRole(response.data.role);
-            })
-            .catch(error => {
-                console.error("Error fetching user role:", error);
-            });
-    }, [userRole]);
+        // Fetch role if not already in context (or rely on AuthContext)
+        axios.get('/api/auth/me')
+            .then(res => setUserRole(res.data.role))
+            .catch(err => console.error("Role fetch error", err));
+    }, []);
+
+    const menuItems = [
+        { path: '/dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
+        { path: '/create-invoice', label: 'New Invoice', icon: <AddIcon />, role: 'Invoice Manager' },
+        { path: '/invoicelist', label: 'Invoices', icon: <InvoiceIcon />, role: 'Invoice Manager' },
+        { path: '/client-list', label: 'Clients', icon: <ClientIcon />, role: 'Client Manager' },
+        { path: '/product-management', label: 'Products', icon: <ProductIcon />, role: 'Product Manager' },
+        { path: '/AcceptOrder', label: 'Orders', icon: <OrderIcon />, role: 'Order Manager' },
+        { path: '/inventory-manager', label: 'Inventory', icon: <InventoryIcon />, role: 'Inventory Manager' },
+        { path: '/create-new-payment', label: 'Payments', icon: <PaymentIcon />, role: 'Payment Manager' },
+        { path: '/report-generator', label: 'Reports', icon: <ReportIcon />, role: 'Report Manager' },
+        { path: '/employee-manager', label: 'Employees', icon: <EmployeeIcon />, role: 'Employee Manager' },
+    ];
+
+    // Helper to check permission
+    const hasPermission = (requiredRole) => {
+        if (!requiredRole) return true; // Public to all admins
+        if (userRole === 'admin') return true; // Super admin
+        return userRole === requiredRole;
+    };
 
     return (
-        <Drawer variant="permanent" anchor="left" className="sidebar-drawer">
-            <Box className="sidebar-header">
-                <h2 className="sidebar-title">Your Logo</h2>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Header / Logo Area */}
+            <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Avatar sx={{ bgcolor: 'primary.main' }}>PP</Avatar>
+                <Typography variant="h6" fontWeight="bold" color="primary">
+                    PayPilot
+                </Typography>
             </Box>
-            <Box className="sidebar-content">
-                <List>
-                    {menuItems.map((item) => {
-                        const isRestricted = 
-                            (userRole === "Client Manager" && item.path === "/client-list") ||
-                            (userRole === "Invoice Manager" && item.path === "/create-invoice") ||
-                            (userRole === "Payment Manager" && item.path === "/create-new-payment") ||
-                            (userRole === "Product Manager" && item.path === "/product-management") ||
-                            (userRole === "Order Manager" && item.path === "/AcceptOrder") ||
-                            (userRole === "Inventory Manager" && item.path === "/inventory-manager") ||
-                            (userRole === "Report Manager" && item.path === "/report-generator") ||
-                            (userRole === "Employee Manager" && item.path === "/employee-manager");
-                            if (isRestricted) {
-                                return null;
-                            }
-                        return (
-                            <ListItem button key={item.path} component={Link} to={item.path} className="sidebar-item">
-                                <ListItemIcon>
-                                    <FontAwesomeIcon icon={item.icon} className="sidebar-icon" />
+            <Divider />
+
+            {/* Menu List */}
+            <List sx={{ flexGrow: 1, px: 2, py: 2 }}>
+                {menuItems.map((item) => (
+                    hasPermission(item.role) && (
+                        <ListItem key={item.path} disablePadding sx={{ mb: 1 }}>
+                            <ListItemButton 
+                                component={Link} 
+                                to={item.path}
+                                selected={location.pathname === item.path}
+                                onClick={onClose} // Close drawer on mobile click
+                                sx={{
+                                    borderRadius: 2,
+                                    '&.Mui-selected': {
+                                        bgcolor: 'primary.light',
+                                        color: 'primary.contrastText',
+                                        '& .MuiListItemIcon-root': { color: 'inherit' }
+                                    },
+                                    '&:hover': { bgcolor: 'action.hover' }
+                                }}
+                            >
+                                <ListItemIcon sx={{ minWidth: 40, color: 'text.secondary' }}>
+                                    {item.icon}
                                 </ListItemIcon>
-                                <ListItemText primary={item.label} />
-                                {isRestricted && <FaLock style={{ marginLeft: '8px', color: 'red' }} />}
-                            </ListItem>
-                        );
-                    })}
-                </List>
+                                <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: 14, fontWeight: 500 }} />
+                            </ListItemButton>
+                        </ListItem>
+                    )
+                ))}
+            </List>
+            
+            {/* Footer / User Info */}
+            <Divider />
+            <Box sx={{ p: 2 }}>
+                <Typography variant="caption" color="text.secondary" display="block" textAlign="center">
+                    Logged in as {userRole || 'User'}
+                </Typography>
             </Box>
-        </Drawer>
+        </Box>
     );
 };
-
-// Menu items as an array
-const menuItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: faHome },
-    { path: '/invoicelist', label: 'Invoice List', icon: faFileInvoice },
-    { path: '/create-invoice', label: 'Create Invoice', icon: faFileInvoice },
-    { path: '/client-list', label: 'Clients List', icon: faUser },
-    { path: '/product-management', label: 'Product List', icon: faBox },
-    { path: '/add-product', label: 'Add Product', icon: faBox },
-    { path: '/report-generator', label: 'Reports', icon: faChartBar },
-    { path: '/AcceptOrder', label: 'Orders', icon: faWarehouse },
-    { path: '/inventory-manager', label: 'Inventory', icon: faWarehouse },
-    { path: '/create-new-payment', label: 'Payments', icon: faCreditCard },
-    { path: '/employee-manager', label: 'Employee', icon: faCog },
-];
 
 export default Sidebar;

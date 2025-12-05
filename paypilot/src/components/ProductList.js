@@ -1,68 +1,80 @@
-import React, { useState, useEffect } from "react";
-import { Container, Table, Button, Alert } from "reactstrap";
-import ModalImage from "react-modal-image"; // Updated import
-// import "react-modal-image/style.css"; // Removed this line if the file doesn't exist
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { Container, Table, Button, Card, CardBody, Badge } from 'reactstrap';
+import { FaEdit, FaTrash, FaBoxOpen } from 'react-icons/fa';
+import { toast } from 'react-toastify';
+import { Link } from 'react-router-dom';
 
 const ProductList = () => {
     const [products, setProducts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
 
     useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                const response = await fetch("/api/product/");
-                const data = await response.json();
-                setProducts(data);
-                setLoading(false);
-            } catch (error) {
-                setError("Failed to fetch products");
-                setLoading(false);
-            }
-        };
         fetchProducts();
     }, []);
 
+    const fetchProducts = async () => {
+        try {
+            const res = await axios.get('/api/product/');
+            setProducts(res.data);
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if(window.confirm("Delete this product?")) {
+            try {
+                await axios.delete(`/api/product/${id}`);
+                toast.success("Product deleted");
+                setProducts(products.filter(p => p._id !== id));
+            } catch (err) {
+                toast.error("Failed to delete");
+            }
+        }
+    };
+
     return (
-        <Container className="mt-5">
-            <h1 className="page-title">Products</h1>
-            {loading && <p>Loading products...</p>}
-            {error && <Alert color="danger">{error}</Alert>}
-            <Table className="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Product Name</th>
-                        <th>Description</th>
-                        <th>Price</th>
-                        <th>Image</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {products.map((product) => {
-                        const imageUrl = `/uploads/${product.image}`;
-                        return (
-                            <tr key={product._id}>
-                                <td>{product.name}</td>
-                                <td>{product.description}</td>
-                                <td>${product.price}</td>
-                                <td style={{
-                                width: 90,
-                                height: 90,
-                                borderRadius: 10,
-                                objectFit: "cover",
-                              }}>
-                                    <ModalImage
-                                        small={imageUrl}
-                                        large={imageUrl}
-                                        alt={product.name}
-                                        
-                                    />
-                                </td>
+        <Container fluid>
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <h2>Product Inventory</h2>
+                <Link to="/add-product">
+                    <Button color="success"><FaBoxOpen className="me-2"/> Add Product</Button>
+                </Link>
+            </div>
+
+            <Card className="shadow-sm border-0">
+                <CardBody>
+                    <Table hover responsive>
+                        <thead className="table-light">
+                            <tr>
+                                <th>Product Name</th>
+                                <th>Price</th>
+                                <th>Category</th>
+                                <th>Stock</th>
+                                <th className="text-end">Actions</th>
                             </tr>
-                        );
-                    })}
-                </tbody>
-            </Table>
+                        </thead>
+                        <tbody>
+                            {products.map(product => (
+                                <tr key={product._id}>
+                                    <td className="fw-bold">{product.name}</td>
+                                    <td>${product.price}</td>
+                                    <td><Badge color="info">{product.category || 'General'}</Badge></td>
+                                    <td>
+                                        <span className={product.stock < 10 ? "text-danger fw-bold" : "text-success"}>
+                                            {product.stock || 0} units
+                                        </span>
+                                    </td>
+                                    <td className="text-end">
+                                        <Button size="sm" outline color="primary" className="me-2"><FaEdit/></Button>
+                                        <Button size="sm" outline color="danger" onClick={() => handleDelete(product._id)}><FaTrash/></Button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </Table>
+                </CardBody>
+            </Card>
         </Container>
     );
 };

@@ -1,189 +1,127 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Table, Button, Modal, Form, FormGroup, Label, Input, Alert, ModalHeader, ModalBody } from 'reactstrap';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { Container, Card, CardBody, Table, Button, Input, Row, Col, Badge } from "reactstrap";
+import { FaEdit, FaTrash, FaSearch, FaUserPlus } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import { toast } from 'react-toastify'; // Make sure to install this
 
 const ClientList = () => {
   const [clients, setClients] = useState([]);
-  const [modalIsOpen, setModalIsOpen] = useState(false);
-  const [newClient, setNewClient] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    company: {
-      name: '',
-      gstNumber: '',
-      address: '',
-    },
-  });
-  const [error, setError] = useState(null);
-  const apiUrl = '/api/client';
+  const [filteredClients, setFilteredClients] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchClients = async () => {
-      try {
-        const response = await fetch(`${apiUrl}/`);
-        const data = await response.json();
-        setClients(data);
-      } catch (error) {
-        setError(error.message);
-      }
-    };
     fetchClients();
   }, []);
 
-  const handleAddClient = async (event) => {
-    event.preventDefault();
+  const fetchClients = async () => {
     try {
-        // Ensure newClient has the correct structure
-        const clientToAdd = {
-            firstName: newClient.firstName,
-            lastName: newClient.lastName || '', 
-            username: newClient.username, 
-            email: newClient.email,
-            phone: newClient.phone,
-            company: {
-                name: newClient.company.name || '', 
-                gstNumber: newClient.company.gstNumber || '',
-            },
-            address: newClient.address,
-            code: newClient.code,
-            country: newClient.country || '', 
-            products: [], 
-            pendingdues: 0, 
-            totalbought: 0, 
-            totalpaid: 0, 
-            invoices: [],
-            notifications: [], 
-        };
-
-        const response = await fetch(`${apiUrl}/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(clientToAdd),
-        });
-        const client = await response.json();
-        setClients([...clients, client]);
-        setModalIsOpen(false);
-        setNewClient({
-            firstName: '',
-            lastName: '',
-            username: '',
-            email: '',
-            phone: '',
-            company: {
-                name: '',
-                gstNumber: '',
-            },
-            address: '',
-            code: '',
-            country: '',
-        });
+      const res = await axios.get("/api/client/");
+      setClients(res.data);
+      setFilteredClients(res.data);
     } catch (error) {
-        setError(error.message);
-    }
-};
-
-  const handleInputChange = (event) => {
-    const { name, value } = event.target;
-    if (name.startsWith('company.')) {
-      setNewClient({
-        ...newClient,
-        company: { ...newClient.company, [name.substring(8)]: value },
-      });
-    } else {
-      setNewClient({ ...newClient, [name]: value });
+      toast.error("Failed to fetch clients");
     }
   };
 
+  const handleSearch = (e) => {
+    const term = e.target.value.toLowerCase();
+    setSearchTerm(term);
+    const filtered = clients.filter(client => 
+      client.firstName.toLowerCase().includes(term) || 
+      client.email.toLowerCase().includes(term)
+    );
+    setFilteredClients(filtered);
+  };
+
   const handleDelete = async (id) => {
-    try {
-      await fetch(`${apiUrl}/${id}`, { method: 'DELETE' });
-      setClients(clients.filter((client) => client.id !== id));
-    } catch (error) {
-      setError(error.message);
+    if (window.confirm("Are you sure you want to delete this client?")) {
+      try {
+        await axios.delete(`/api/client/${id}`);
+        toast.success("Client deleted successfully");
+        fetchClients();
+      } catch (error) {
+        toast.error("Error deleting client");
+      }
     }
   };
 
   return (
-    <Container className="mt-5">
-      <h2 className="text-center mb-4">Client List</h2>
-      {error && <Alert color="danger">{error}</Alert>}
-      <Table striped bordered hover>
-        <thead>
-          <tr>
-            <th>Client Name</th>
-            <th>Email</th>
-            <th>Phone</th>
-            <th>Company</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {clients.map((client) => (
-            <tr key={client._id}>
-              <td>{`${client.firstName} ${client.lastName}`}</td>
-              <td>{client.email}</td>
-              <td>{client.phone}</td>
-              <td>{client.company.name}</td>
-              <td>
-                <Button color="danger" onClick={() => handleDelete(client._id)}>Delete</Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
-      <Button color="primary" onClick={() => setModalIsOpen(true)}>Add Client</Button>
+    <Container fluid>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2>Client Management</h2>
+        <Button color="primary" onClick={() => navigate("/add-client")}>
+          <FaUserPlus className="me-2"/> Add New Client
+        </Button>
+      </div>
 
-      <Modal isOpen={modalIsOpen} toggle={() => setModalIsOpen(false)} style={{marginTop:"140px"}}>
-        <ModalHeader toggle={() => setModalIsOpen(false)}>
-          <h1>Add New Client</h1>
-        </ModalHeader>
-        <ModalBody>
-        <Form onSubmit={handleAddClient}>
-    <FormGroup>
-        <Label for="firstName">First Name</Label>
-        <Input type="text" name="firstName" value={newClient.firstName} onChange={handleInputChange} required />
-    </FormGroup>
-    <FormGroup>
-        <Label for="lastName">Last Name</Label>
-        <Input type="text" name="lastName" value={newClient.lastName} onChange={handleInputChange} />
-    </FormGroup>
-    <FormGroup>
-        <Label for="username">Username</Label>
-        <Input type="text" name="username" value={newClient.username} onChange={handleInputChange} required />
-    </FormGroup>
-    <FormGroup>
-        <Label for="email">Email</Label>
-        <Input type="email" name="email" value={newClient.email} onChange={handleInputChange} required />
-    </FormGroup>
-    <FormGroup>
-        <Label for="phone">Phone</Label>
-        <Input type="text" name="phone" value={newClient.phone} onChange={handleInputChange} required />
-    </FormGroup>
-    <FormGroup>
-        <Label for="address">Address</Label>
-        <Input type="text" name="address" value={newClient.address} onChange={handleInputChange} required />
-    </FormGroup>
-    <FormGroup>
-        <Label for="code">Code</Label>
-        <Input type="number" name="code" value={newClient.code} onChange={handleInputChange} required />
-    </FormGroup>
-    <FormGroup>
-        <Label for="companyName">Company Name</Label>
-        <Input type="text" name="company.name" value={newClient.company.name} onChange={handleInputChange} />
-    </FormGroup>
-    <FormGroup>
-        <Label for="gstNumber">GST Number</Label>
-        <Input type="text" name="company.gstNumber" value={newClient.company.gstNumber} onChange={handleInputChange} />
-    </FormGroup>
-    <FormGroup>
-        <Label for="country">Country</Label>
-        <Input type="text" name="country" value={newClient.country} onChange={handleInputChange} />
-    </FormGroup>
-    <Button type="submit" color="success">Add Client</Button>
-</Form>
-        </ModalBody>
-      </Modal>
+      <Card className="shadow-sm border-0">
+        <CardBody>
+          <Row className="mb-3">
+            <Col md={4}>
+              <div className="input-group">
+                <span className="input-group-text bg-light border-end-0"><FaSearch className="text-muted"/></span>
+                <Input 
+                  placeholder="Search by name or email..." 
+                  className="border-start-0"
+                  value={searchTerm}
+                  onChange={handleSearch}
+                />
+              </div>
+            </Col>
+          </Row>
+
+          <Table hover responsive className="align-middle">
+            <thead className="table-light">
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Status</th>
+                <th className="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredClients.map(client => (
+                <tr key={client._id}>
+                  <td>
+                    <div className="d-flex align-items-center">
+                      <div className="bg-light rounded-circle p-2 me-2 text-primary fw-bold">
+                        {client.firstName[0]}
+                      </div>
+                      <div>
+                        <div className="fw-bold">{client.firstName} {client.lastName}</div>
+                        <small className="text-muted">ID: {client._id.slice(-6)}</small>
+                      </div>
+                    </div>
+                  </td>
+                  <td>{client.email}</td>
+                  <td>{client.phone}</td>
+                  <td>
+                    <Badge color={client.verified ? "success" : "warning"} pill>
+                      {client.verified ? "Verified" : "Pending"}
+                    </Badge>
+                  </td>
+                  <td className="text-end">
+                    <Button size="sm" color="light" className="me-2 text-primary">
+                      <FaEdit />
+                    </Button>
+                    <Button size="sm" color="light" className="text-danger" onClick={() => handleDelete(client._id)}>
+                      <FaTrash />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+              {filteredClients.length === 0 && (
+                <tr>
+                  <td colSpan="5" className="text-center py-4 text-muted">No clients found</td>
+                </tr>
+              )}
+            </tbody>
+          </Table>
+        </CardBody>
+      </Card>
     </Container>
   );
 };

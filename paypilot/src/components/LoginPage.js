@@ -1,31 +1,26 @@
 import React, { useState } from "react";
 import axios from "axios";
-import {Container,Row,Col,Form,FormGroup,Label,Input,Button,Alert} from "reactstrap";
+import { Container, Row, Col, Form, FormGroup, Label, Input, Button, Card, CardBody } from "reactstrap";
 import Lottie from "lottie-react";
-import animationData from "./animation/Animation - 1733831017954.json";
-import animationData1 from "./animation/Animation - registation sucessfull.json";
+import animationData from "./animation/Animation - 1733831017954.json"; // Ensure path is correct
+import { toast } from "react-toastify";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
   const [isOtpSent, setIsOtpSent] = useState(false);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await axios.post("http://localhost:3000/api/auth/login", {
-        email,
-        password,
-      });
+      await axios.post("/api/auth/login", { email, password });
       setIsOtpSent(true);
-      setError("");
+      toast.info("OTP sent to your email!");
     } catch (err) {
-      setError(err.response.data.message);
+      toast.error(err.response?.data?.message || "Login failed");
     } finally {
       setLoading(false);
     }
@@ -35,114 +30,101 @@ const LoginPage = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await axios.post(
-        "http://localhost:3000/api/auth/verify-otp-login",
-        {
-          email,
-          otp,
-        }
-      );
-
-      //console.log(response.data.token);
+      const response = await axios.post("/api/auth/verify-otp-login", { email, otp });
       localStorage.setItem("token", response.data.token);
-      //console.log(localStorage.getItem("token"));
-      //console.log("Login successful!");
-      setIsSuccess(true);
+      toast.success("Login Successful!");
+      
+      // Redirect to dashboard
       setTimeout(() => {
         window.location.href = "/dashboard";
-      }, 2000);
+      }, 1000);
     } catch (err) {
-      setError(err.response.data.message);
+      toast.error(err.response?.data?.message || "Invalid OTP");
     } finally {
       setLoading(false);
     }
   };
 
-  const isValidEmail = (email) => {
-    const validTlds = ['com', 'net', 'org', 'edu', 'gov', 'mil', 'int', 'biz', 'info', 'pro', 'name', 'museum', 'asia', 'cat', 'coop', 'jobs', 'mobi', 'tel', 'travel', 'xxx', 'aero', 'arpa', 'biz', 'com', 'coop', 'edu', 'gov', 'info', 'int', 'jobs', 'mil', 'mobi', 'museum', 'name', 'net', 'org', 'pro', 'tel', 'travel', 'xxx', 'ac', 'ad', 'ae', 'af', 'ag', 'ai', 'al', 'am', 'an', 'ao', 'aq', 'ar', 'as', 'at', 'au', 'aw', 'ax', 'az', 'ba', 'bb', 'bd', 'be', 'bf', 'bg', 'bh', 'bi', 'bj', 'bl', 'bm', 'bn', 'bo', 'br', 'bs', 'bt', 'bv', 'bw', 'by', 'bz', 'ca', 'cc', 'cd', 'cf', 'cg', 'ch', 'ci', 'ck', 'cl', 'cm', 'cn', 'co', 'cr', 'cs', 'cu', 'cv', 'cx', 'cy', 'cz', 'de', 'dj', 'dk', 'dm', 'do', 'dz', 'ec', 'ee', 'eg', 'eh', 'er', 'es', 'et', 'eu', 'fi', 'fj', 'fk', 'fm', 'fo', 'fr', 'ga', 'gd', 'ge', 'gf', 'gg', 'gh', 'gi', 'gl', 'gm', 'gn', 'gp', 'gq', 'gr', 'gs', 'gt', 'gu', 'gw', 'gy', 'hk', 'hm', 'hn', 'hr', 'ht', 'hu', 'id', 'ie', 'il', 'im', 'in', 'io', 'iq', 'ir', 'is', 'it', 'je', 'jm', 'jo', 'jp', 'ke', 'kg', 'kh', 'ki', 'km', 'kn', 'kp', 'kr', 'kw', 'ky', 'kz', 'la', 'lb', 'lc', 'li', 'lk', 'lr', 'ls', 'lt', 'lu', 'lv', 'ly', 'ma', 'mc', 'md', 'me', 'mg', 'mh', 'mk', 'ml', 'mm', 'mn', 'mo', 'mp', 'mq', 'mr', 'ms', 'mt', 'mu', 'mv', 'mw', 'mx', 'my', 'mz', 'na', 'nc', 'ne', 'nf', 'ng', 'ni', 'nl', 'no', 'np', 'nr', 'nu', 'nz', 'om', 'pa', 'pe', 'pf', 'pg', 'ph', 'pk', 'pl', 'pm', 'pn', 'pr', 'ps', 'pt', 'pw', 'py', 'qa', 're', 'ro', 'rs', 'ru', 'rw', 'sa', 'sb', 'sc', 'sd', 'se', 'sg', 'sh', 'si', 'sk', 'sl', 'sm', 'sn', 'so', 'sr', 'st', 'sv', 'sy', 'sz', 'tc', 'td', 'tf', 'tg', 'th', 'tj', 'tk', 'tl', 'tm', 'tn', 'to', 'tr', 'tt', 'tv', 'tw', 'tz', 'ua', 'ug', 'us', 'uy', 'uz', 'va', 'vc', 've', 'vg', 'vi', 'vn', 'vu', 'wf', 'ws', 'ye', 'yt', 'za', 'zm', 'zw'];
-    const emailRegex = new RegExp(`^[a-zA-Z0-9._%+-]+@[a-zA-Z.-]+\\.(?:${validTlds.join('|')})$`);
-    return emailRegex.test(email);
-  };
   return (
-      <div className="login-container" style={{marginTop:"10%"}}>
-        {isSuccess && (
-        <div style={{display: "flex",justifyContent: "center",alignItems: "center",position: "fixed",top: 0,left: 0,right: 0,bottom: 0,zIndex: 1000,backgroundColor: "rgba(0, 0, 0, 0.5)"
-        }}>
-          <div style={{backgroundColor: "transparent", padding: "20px"
-          }}>
-            <Lottie animationData={animationData1} style={{ width: "50%", height: "50%" }} />
-            <h4>Product Added to Inventory!</h4>
-          </div>
-        </div>
-      )}
+    <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex", alignItems: "center" }}>
       <Container>
-        <Row>
-          <Col md={6}>
-            <div className="login-card">
-              {!isOtpSent ? (
-                <Form onSubmit={handleLogin}>
-                  <h2 className="login-title">Login</h2>
-                  <FormGroup>
-                    <Label>Email</Label>
-                    <Input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      invalid={!isValidEmail(email) && email.length > 0}
-                    />
-                  </FormGroup>
-                  <FormGroup>
-                    <Label>Password</Label>
-                    <Input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
-                  </FormGroup>
-                  <Button type="submit" color="primary" disabled={loading}>
-                    {loading ? "Loading..." : "Login"}
-                  </Button>
-                  {error && <Alert color="danger">{error}</Alert>}
-                </Form>
-              ) : (
-                <Form onSubmit={handleVerifyOtp}>
-                  <h2 className="login-title">Verify OTP</h2>
-                  <FormGroup>
-                    <Label>Enter OTP</Label>
-                    <Input
-                      type="text"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      required
-                    />
-                  </FormGroup>
-                  <Button type="submit" color="primary" disabled={loading}>
-                    {loading ? "Loading..." : "Verify OTP"}
-                  </Button>
-                  {error && <Alert color="danger">{error}</Alert>}
-                </Form>
-              )}
-              <div style={{ marginTop: "30px" }}>
-                <p>
-                  Don't have an account? <a href="/register">Register here</a>
-                </p>
-              </div>
-            </div>
+        <Row className="align-items-center justify-content-center">
+          {/* Animation Column - Hidden on small screens */}
+          <Col md={6} className="d-none d-md-block text-center">
+            <Lottie animationData={animationData} style={{ maxWidth: "500px", margin: "0 auto" }} />
           </Col>
-          <div style={{ display: "contents" }}>
-            <Lottie
-              animationData={animationData}
-              style={{
-                width: "35%",
-                height: "35%",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            />
-          </div>
+
+          {/* Login Form Column */}
+          <Col md={5}>
+            <Card className="shadow border-0 p-3">
+              <CardBody>
+                <div className="text-center mb-4">
+                  <h3 className="fw-bold text-primary">Welcome Back</h3>
+                  <p className="text-muted">Sign in to PayPilot Admin Portal</p>
+                </div>
+
+                {!isOtpSent ? (
+                  <Form onSubmit={handleLogin}>
+                    <FormGroup className="mb-3">
+                      <Label>Email Address</Label>
+                      <Input
+                        type="email"
+                        placeholder="Enter your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="p-2"
+                      />
+                    </FormGroup>
+                    <FormGroup className="mb-3">
+                      <Label>Password</Label>
+                      <Input
+                        type="password"
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="p-2"
+                      />
+                    </FormGroup>
+                    <Button color="primary" block size="lg" type="submit" disabled={loading}>
+                      {loading ? "Authenticating..." : "Login"}
+                    </Button>
+                  </Form>
+                ) : (
+                  <Form onSubmit={handleVerifyOtp}>
+                    <div className="text-center mb-3">
+                      <span className="badge bg-info">OTP Sent to {email}</span>
+                    </div>
+                    <FormGroup className="mb-3">
+                      <Label>One-Time Password (OTP)</Label>
+                      <Input
+                        type="text"
+                        placeholder="Enter 6-digit OTP"
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value)}
+                        required
+                        className="text-center p-2"
+                        style={{ letterSpacing: "2px", fontSize: "1.2rem" }}
+                      />
+                    </FormGroup>
+                    <Button color="success" block size="lg" type="submit" disabled={loading}>
+                      {loading ? "Verifying..." : "Verify & Enter"}
+                    </Button>
+                    <div className="text-center mt-3">
+                        <small className="text-muted cursor-pointer" onClick={() => setIsOtpSent(false)} style={{cursor:'pointer'}}>
+                            Wrong email? Go Back
+                        </small>
+                    </div>
+                  </Form>
+                )}
+
+                <div className="text-center mt-4 border-top pt-3">
+                  <small>Don't have an account? <a href="/register" className="text-decoration-none">Register here</a></small>
+                </div>
+              </CardBody>
+            </Card>
+          </Col>
         </Row>
       </Container>
     </div>

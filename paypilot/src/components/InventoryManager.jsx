@@ -1,165 +1,150 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Button, Table } from "react-bootstrap";
-import Lottie from 'lottie-react'; // Import Lottie for animations
+import axios from "axios";
+import { 
+  Container, Row, Col, Table, Button, Modal, ModalHeader, ModalBody, ModalFooter, Form, FormGroup, Label, Input, Card, CardBody, Badge 
+} from "reactstrap";
+import { FaBoxes, FaPlusCircle } from "react-icons/fa";
+import { toast } from 'react-toastify';
+import Lottie from 'lottie-react'; 
 import animationData from './animation/Animation - inventory.json';
-//import animation1 from './animation/Animation - 1.json';
-import animation2 from './animation/Animation - added to inventory.json';
-//import animation3 from './animation/Animation - 3.json';
 
-import './InventoryManager.css'; // Import the new CSS file
-
-const Inventory = () => {
+const InventoryManager = () => {
   const [products, setProducts] = useState([]);
-  const [selectedProductId, setSelectedProductId] = useState("");
-  const [addProductFormVisible, setAddProductFormVisible] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [quantity, setQuantity] = useState(0);
-  const [error, setError] = useState(null);
-  const [successPopupVisible, setsuccessPopupVisible] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState("");
+  const [addQuantity, setAddQuantity] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetch("/api/product/")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(response.statusText);
-        }
-        return response.json();
-      })
-      .then((data) => {
-        setProducts(data);
-      })
-      .catch((error) => setError(error.message));
+    fetchProducts();
   }, []);
 
-  const handleAddProduct = () => {
-    setAddProductFormVisible(true);
-  };
-
-  const handleQuantityChange = (event) => {
-    const quantity = parseInt(event.target.value, 10);
-    if (quantity >= 0) {
-      setQuantity(quantity);
+  const fetchProducts = async () => {
+    try {
+      const res = await axios.get("/api/product/");
+      setProducts(res.data);
+    } catch (err) {
+      toast.error("Failed to load inventory");
     }
   };
 
-  const handleAddToInventory = () => {
-    if (selectedProduct && quantity) {
-      fetch(`/api/product/${selectedProduct._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ quantity: selectedProduct.quantity + quantity, lastupdatedat: Date.now() }),
-      })
-        .then((response) => {
-          const productIndex = products.findIndex(
-            (product) => product._id === selectedProduct._id
-          );
-
-          if (productIndex !== -1) {
-            const updatedProduct = {
-              ...selectedProduct,
-              quantity: selectedProduct.quantity + quantity,
-            };
-
-            const updatedProducts = [...products];
-            updatedProducts[productIndex] = updatedProduct;
-            setProducts(updatedProducts);
-          }
-
-          setAddProductFormVisible(false);
-          setsuccessPopupVisible(true);
-          setTimeout(() => {
-            setsuccessPopupVisible(false);
-            window.location.reload();
-            }, 3000);
-
-        })
-        .catch((error) => {
-          console.error(error);
-        });
+  const handleUpdateStock = async () => {
+    if (!selectedProduct || addQuantity <= 0) {
+      toast.warn("Select a product and valid quantity");
+      return;
     }
-  };
 
-  const handleSelectProduct = (event) => {
-    const value = event.target.value;
-    const selectedProduct = products.find(product => product._id === value);
-    setSelectedProduct(selectedProduct);
-    setQuantity(0);
+    setLoading(true);
+    const product = products.find(p => p._id === selectedProduct);
+    const newQuantity = (product.quantity || 0) + parseInt(addQuantity);
+
+    try {
+      await axios.put(`/api/product/${selectedProduct}`, {
+        quantity: newQuantity,
+        lastupdatedat: Date.now()
+      });
+      
+      toast.success("Stock updated successfully!");
+      setModalOpen(false);
+      setAddQuantity(0);
+      setSelectedProduct("");
+      fetchProducts();
+    } catch (err) {
+      toast.error("Failed to update stock");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="container mt-5">
-      
-      <h2 className="text-center mb-4" style={{ color:"black" }}>Inventory</h2>
-      {error && <div className="alert alert-danger">{error}</div>}
-      <div style={{display:"flex"}}>
-      <Table striped bordered hover variant="light" style={{width:"50%"}}>
-        <thead style={{backgroundColor:"blue"}}>
-          <tr>
-            <th>Product Name</th>
-            <th>Price</th>
-            <th>Quantity</th>
-          </tr>
-        </thead>
-        <tbody>
-          {products.map((product) => (
-            <tr key={product._id}>
-              <td>{product.name}</td>
-              <td>{product.price}</td>
-              <td>{product.quantity}</td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
-      <div style={{width:"40%",padding:"10%"}}>
-      <Lottie
-          animationData={animationData}
-        />
-      </div>
-      </div>
-      <Button variant="success" onClick={handleAddProduct}>Add Product to Inventory</Button>
-      <Modal show={addProductFormVisible} onHide={() => setAddProductFormVisible(false)} style={{marginTop:"140px"}}>
-        <Modal.Header closeButton>
-          <Modal.Title>Add Product to Inventory</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <form>
-            <div className="form-group">
-              <label htmlFor="product">Select Product</label>
-              <select className="form-control" id="product" onChange={handleSelectProduct}>
-                <option value="">Select product</option>
-                {products.map((product) => (
-                  <option key={product._id} value={product._id}>
-                    {product.name}
-                  </option>
+    <Container fluid>
+      <h2 className="mb-4"><FaBoxes className="me-2"/> Inventory Management</h2>
+
+      <Row>
+        <Col md={8}>
+          <Card className="shadow-sm border-0 h-100">
+            <CardBody>
+              <div className="d-flex justify-content-between mb-3">
+                  <h5 className="text-muted">Current Stock Levels</h5>
+                  <Button color="primary" onClick={() => setModalOpen(true)}>
+                      <FaPlusCircle className="me-2"/> Add Stock
+                  </Button>
+              </div>
+              
+              <Table hover responsive>
+                <thead className="table-light">
+                  <tr>
+                    <th>Product Name</th>
+                    <th>Price</th>
+                    <th>Current Stock</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {products.map((p) => (
+                    <tr key={p._id}>
+                      <td>{p.name}</td>
+                      <td>${p.price}</td>
+                      <td className="fw-bold">{p.quantity || 0}</td>
+                      <td>
+                        {(p.quantity || 0) < 10 ? 
+                            <Badge color="danger">Low Stock</Badge> : 
+                            <Badge color="success">In Stock</Badge>
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </CardBody>
+          </Card>
+        </Col>
+
+        <Col md={4}>
+           {/* Animation / Stats Side Panel */}
+           <Card className="shadow-sm border-0 h-100 text-center p-3">
+               <CardBody>
+                   <h5 className="mb-4">Live Inventory Tracking</h5>
+                   <div style={{ maxWidth: '300px', margin: '0 auto' }}>
+                       <Lottie animationData={animationData} loop={true} />
+                   </div>
+                   <div className="mt-4 text-start">
+                       <p><strong>Total Items:</strong> {products.length}</p>
+                       <p><strong>Low Stock Alerts:</strong> {products.filter(p => (p.quantity || 0) < 10).length}</p>
+                   </div>
+               </CardBody>
+           </Card>
+        </Col>
+      </Row>
+
+      <Modal isOpen={modalOpen} toggle={() => setModalOpen(false)}>
+        <ModalHeader toggle={() => setModalOpen(false)}>Add Stock to Inventory</ModalHeader>
+        <ModalBody>
+          <Form>
+            <FormGroup>
+              <Label>Select Product</Label>
+              <Input type="select" value={selectedProduct} onChange={e => setSelectedProduct(e.target.value)}>
+                <option value="">-- Select Product --</option>
+                {products.map(p => (
+                  <option key={p._id} value={p._id}>{p.name} (Curr: {p.quantity || 0})</option>
                 ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label htmlFor="quantity">Quantity</label>
-              <input type="number" className="form-control" id="quantity" value={quantity} onChange={handleQuantityChange} />
-            </div>
-          </form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setAddProductFormVisible(false)}>Close</Button>
-          <Button variant="primary" onClick={handleAddToInventory} disabled={!selectedProduct || quantity <= 0}>Add to Inventory</Button>
-        </Modal.Footer>
+              </Input>
+            </FormGroup>
+            <FormGroup>
+              <Label>Quantity to Add</Label>
+              <Input type="number" value={addQuantity} onChange={e => setAddQuantity(e.target.value)} min="1" />
+            </FormGroup>
+          </Form>
+        </ModalBody>
+        <ModalFooter>
+          <Button color="secondary" onClick={() => setModalOpen(false)}>Cancel</Button>
+          <Button color="success" onClick={handleUpdateStock} disabled={loading}>
+            {loading ? "Updating..." : "Update Stock"}
+          </Button>
+        </ModalFooter>
       </Modal>
-      {successPopupVisible && (
-        <div style={{display: "flex",justifyContent: "center",alignItems: "center",position: "fixed",top: 0,left: 0,right: 0,bottom: 0,zIndex: 1000,backgroundColor: "rgba(0, 0, 0, 0.5)"
-        }}>
-          <div style={{backgroundColor: "transparent", padding: "20px"
-          }}>
-            <Lottie animationData={animation2} style={{ width: "100%", height: "100%" }} />
-            <h4>Product Added to Inventory!</h4>
-          </div>
-        </div>
-      )}
-    </div>
-    
+    </Container>
   );
 };
 
-export default Inventory;
+export default InventoryManager;

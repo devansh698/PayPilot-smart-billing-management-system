@@ -1,97 +1,104 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Table, Button, Alert } from 'reactstrap';
-import './PaymentManagement.css';
+import axios from 'axios';
+import { Container, Table, Button, Badge, Card, CardBody, Pagination, PaginationItem, PaginationLink } from 'reactstrap';
+import { FaMoneyBillWave, FaTrash } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
 const PaymentManagement = () => {
     const [payments, setPayments] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
     const [currentPage, setCurrentPage] = useState(0);
-    const itemsPerPage = 7;
+    const pageSize = 10;
 
     useEffect(() => {
-        const fetchPayments = async () => {
-            setLoading(true);
-            try {
-                const response = await fetch('/api/payments/');
-                const data = await response.json();
-                console.log(data); // Log the fetched data
-                setPayments(data);
-                setLoading(false);
-            } catch (error) {
-                setError('Failed to fetch payments');
-                setLoading(false);
-            }
-        };
         fetchPayments();
     }, []);
 
+    const fetchPayments = async () => {
+        try {
+            const res = await axios.get('/api/payments/');
+            setPayments(res.data);
+        } catch (error) {
+            console.error("Error fetching payments", error);
+        }
+    };
+
     const handleDelete = async (id) => {
-        if (window.confirm('Are you sure you want to delete this payment?')) {
+        if (window.confirm('Delete this payment record?')) {
             try {
-                await fetch(`/api/payments/${id}`, { method: 'DELETE' });
-                setPayments(payments.filter(payment => payment._id !== id));
+                await axios.delete(`/api/payments/${id}`);
+                setPayments(payments.filter(p => p._id !== id));
+                toast.success("Payment deleted");
             } catch (error) {
-                setError('Failed to delete payment');
+                toast.error("Failed to delete payment");
             }
         }
     };
 
-    // No filtering logic, just use the full payments array
-    const totalPages = Math.ceil(payments.length / itemsPerPage);
-    const displayedPayments = payments.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
-    
-    console.log(displayedPayments); // Log displayed payments
+    // Pagination Logic
+    const pageCount = Math.ceil(payments.length / pageSize);
+    const displayedPayments = payments.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
 
     return (
-        <div className="payment-management-container">
-            <Container className="mt-5">
-                <h1 className="page-title">Payment Management</h1>
-                {loading && <p>Loading payments...</p>}
-                {error && <Alert color="danger">{error}</Alert>}
-                
-                <Table className="payment-table">
-                    <thead>
-                        <tr>
-                            <th>Payment ID</th>
-                            <th>Invoice Number</th>
-                            <th>Client Name</th>
-                            <th>Amount</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {displayedPayments.map((payment) => (
-                            <tr key={payment._id}>
-                                <td>{payment.paymentId}</td>
-                                <td>{payment.invoiceId.invoiceNo}</td>
-                                <td>{payment.clientId.firstName+" "+payment.clientId.lastName}</td>
-                                <td>Rs. {payment.amount.toFixed(2)}</td>
-                                <td>
-                                    <Button color="danger" onClick={() => handleDelete(payment._id)}>Delete</Button>
-                                </td>
+        <Container fluid>
+            <h2 className="mb-4"><FaMoneyBillWave className="me-2"/> Payment History</h2>
+            
+            <Card className="shadow-sm border-0">
+                <CardBody>
+                    <Table hover responsive>
+                        <thead className="table-light">
+                            <tr>
+                                <th>Payment ID</th>
+                                <th>Invoice #</th>
+                                <th>Client</th>
+                                <th>Amount</th>
+                                <th>Actions</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </Table>
+                        </thead>
+                        <tbody>
+                            {displayedPayments.map((payment) => (
+                                <tr key={payment._id}>
+                                    <td><small className="text-muted">{payment.paymentId || payment._id.slice(-8)}</small></td>
+                                    <td>
+                                        <Badge color="secondary">{payment.invoiceId?.invoiceNo || 'N/A'}</Badge>
+                                    </td>
+                                    <td>
+                                        {payment.clientId ? `${payment.clientId.firstName} ${payment.clientId.lastName}` : 'Unknown Client'}
+                                    </td>
+                                    <td className="text-success fw-bold">Rs. {payment.amount.toFixed(2)}</td>
+                                    <td>
+                                        <Button size="sm" outline color="danger" onClick={() => handleDelete(payment._id)}>
+                                            <FaTrash />
+                                        </Button>
+                                    </td>
+                                </tr>
+                            ))}
+                            {payments.length === 0 && <tr><td colSpan="5" className="text-center">No payment records found.</td></tr>}
+                        </tbody>
+                    </Table>
 
-                <div className="pagination">
-                    <Button 
-                        disabled={currentPage === 0} 
-                        onClick={() => setCurrentPage(currentPage - 1)}
-                    >
-                        Previous
-                    </Button>
-                    <span> Page {currentPage + 1} of {totalPages} </span>
-                    <Button 
-                        disabled={currentPage >= totalPages - 1} 
-                        onClick={() => setCurrentPage(currentPage + 1)}
-                    >
-                        Next
-                    </Button>
-                </div>
-            </Container>
-        </div>
+                    {/* Simple Pagination */}
+                    {pageCount > 1 && (
+                        <div className="d-flex justify-content-center mt-3">
+                            <Button 
+                                disabled={currentPage === 0} 
+                                onClick={() => setCurrentPage(c => c - 1)}
+                                className="me-2"
+                            >
+                                Previous
+                            </Button>
+                            <span className="align-self-center">Page {currentPage + 1} of {pageCount}</span>
+                            <Button 
+                                disabled={currentPage === pageCount - 1} 
+                                onClick={() => setCurrentPage(c => c + 1)}
+                                className="ms-2"
+                            >
+                                Next
+                            </Button>
+                        </div>
+                    )}
+                </CardBody>
+            </Card>
+        </Container>
     );
 };
 

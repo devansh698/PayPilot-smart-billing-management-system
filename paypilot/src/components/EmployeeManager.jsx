@@ -1,226 +1,151 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Table, Button, Modal, ModalHeader, ModalBody, Form, FormGroup, Label, Input, Alert } from 'reactstrap';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEdit, faTrash, faPlus } from '@fortawesome/free-solid-svg-icons';
-import Lottie from "lottie-react";
-import animationData from './animation/Animation - loading.json';
-function generatePassword() {
-  const uppercaseLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const lowercaseLetters = 'abcdefghijklmnopqrstuvwxyz';
-  const numbers = '0123456789';
-  const specialChars = '!@#$%^&*()_+-=';
-  let password = '';
-
-  // Ensure at least one character from each category
-  password += getRandomChar(uppercaseLetters);
-  password += getRandomChar(lowercaseLetters);
-  password += getRandomChar(numbers);
-  password += getRandomChar(specialChars);
-
-  // Fill the rest of the password with random characters
-  while (password.length < 8) {
-    const charType = Math.floor(Math.random() * 4);
-    switch (charType) {
-      case 0:
-        password += getRandomChar(uppercaseLetters);
-        break;
-      case 1:
-        password += getRandomChar(lowercaseLetters);
-        break;
-      case 2:
-        password += getRandomChar(numbers);
-        break;
-      case 3:
-        password += getRandomChar(specialChars);
-        break;
-      default:
-        password += getRandomChar(uppercaseLetters);
-        break;
-    }
-  }
-
-  password = shuffleString(password);
-
-  return password;
-}
-
-function getRandomChar(charSet) {
-  return charSet[Math.floor(Math.random() * charSet.length)];
-}
-
-function shuffleString(str) {
-  const arr = str.split('');
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr.join('');
-}
+import axios from 'axios';
+import { Container, Table, Button, Modal, ModalHeader, ModalBody, Form, FormGroup, Label, Input, Alert, Card, CardBody } from 'reactstrap';
+import { FaUserPlus, FaTrash, FaUserTie } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
 const EmployeePage = () => {
   const [employees, setEmployees] = useState([]);
-  const [showAddEmployeeForm, setShowAddEmployeeForm] = useState(false);
-  const [newEmployee, setNewEmployee] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    role: '',
-  });
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', role: '' });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        const response = await fetch('/api/user/');
-        const data = await response.json();
-        setEmployees(data);
-      } catch (error) {
-        setError('Failed to fetch employees');
-      }
-    };
     fetchEmployees();
   }, []);
 
-  const handleAddEmployee = async (event) => {
-    event.preventDefault();
-    const employeeData = {
-      username: newEmployee.name,
-      email: newEmployee.email,
-      phone: newEmployee.phone,
-      password: generatePassword(),
-      role: newEmployee.role
-    };
-
-    const addEmployee = async () => {
-      setLoading(true);
-      const response = await fetch('/api/user/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(employeeData),
-      });
-      const data = await response.json();
-
-      if (response.ok) {
-        // Send email to the new employee
-        const emailResponse = await fetch('/api/user/send-email', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            to: employeeData.email,
-            subject: 'Welcome to PayPilot',
-            text: `Hello ${employeeData.username},\n\nWelcome to PayPilot!\n\nYour login credentials are:\nUsername: ${employeeData.username}\nPassword: ${employeeData.password}\n\nPlease log in using the above credentials.\n\nBest regards,\nPayPilot Team`
-          }),
-        });
-
-        if (emailResponse.ok) {
-          setNewEmployee({ name: '', email: '', phone: '', role: '' });
-          setEmployees((prevEmployees) => [...prevEmployees, data]);
-          setShowAddEmployeeForm(false);
-          setSuccess('Employee added successfully');
-          setLoading(false);
-          window.location.reload();
-
-        } else {
-          setError('Failed to send email to the new employee');
-          setLoading(false);
-        }
-      } else {
-        setError('Failed to add the new employee');
-        setLoading(false);
-      }
-    };
-
-    addEmployee();
+  const fetchEmployees = async () => {
+    try {
+      const res = await axios.get('/api/user/');
+      setEmployees(res.data);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleDeleteEmployee = async (id) => {
-    if (window.confirm('Are you sure you want to delete this employee?')) {
+  // Simple password generator
+  const generatePassword = () => Math.random().toString(36).slice(-8) + "Aa1!";
+
+  const handleAddEmployee = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const payload = {
+      username: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      password: generatePassword(),
+      role: formData.role
+    };
+
+    try {
+      // Register User
+      await axios.post('/api/user/register', payload);
+      
+      // Try sending email (fail silently if email server not configured)
       try {
-        await fetch(`/api/user/${id}`, { method: 'DELETE' });
-        setEmployees(employees.filter(employee => employee._id !== id));
-      } catch (error) {
-        setError('Failed to delete employee');
+        await axios.post('/api/user/send-email', {
+            to: payload.email,
+            subject: 'Welcome to PayPilot',
+            text: `Welcome! Your login: ${payload.username} / ${payload.password}`
+        });
+        toast.success("Employee added & Email sent!");
+      } catch (emailErr) {
+        toast.warning("Employee added, but email failed.");
+      }
+
+      setModalOpen(false);
+      setFormData({ name: '', email: '', phone: '', role: '' });
+      fetchEmployees();
+
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to add employee");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Delete this employee?')) {
+      try {
+        await axios.delete(`/api/user/${id}`);
+        setEmployees(employees.filter(e => e._id !== id));
+        toast.success("Deleted successfully");
+      } catch (err) {
+        toast.error("Delete failed");
       }
     }
   };
 
   return (
-    <Container className="mt-5">
-      <Modal isOpen={loading} style={{ marginTop: "180px", zIndex: "10000000000", backgroundColor: "rgba(0, 0, 0, 0)",border:"none" }}>
-  <ModalBody className='moda-content' style={{ backgroundColor: "transparent" }}>
-    <Lottie animationData={animationData} style={{ width: "100%", height: "100%" }} />
-  </ModalBody>
-</Modal>
-      <h1>Employee Manager</h1>
-      {error && <Alert color="danger">{error}</Alert>}
-      <Button color="primary" onClick={() => setShowAddEmployeeForm(true)}>
-        <FontAwesomeIcon icon={faPlus} /> Add Employee
-      </Button>
-      <Table striped bordered hover className="mt-4">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Phone</th>
-            <th>Role</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {employees.map((employee) => (
-            <tr key={employee._id}>
-              <td>{employee.username}</td>
-              <td>{employee.email}</td>
-              <td>{employee.phone}</td>
-              <td>{employee.role}</td>
-              <td>
-                <Button color="warning" onClick={() => {/* Navigate to edit employee */}}>
-                  <FontAwesomeIcon icon={faEdit} /> Edit
-                </Button>
-                <Button color="danger" onClick={() => handleDeleteEmployee(employee._id)}>
-                  <FontAwesomeIcon icon={faTrash} /> Delete
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
+    <Container fluid>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2><FaUserTie className="me-2"/> Employee Manager</h2>
+        <Button color="primary" onClick={() => setModalOpen(true)}>
+          <FaUserPlus className="me-2"/> Add Employee
+        </Button>
+      </div>
 
-      <Modal isOpen={showAddEmployeeForm} toggle={() => setShowAddEmployeeForm(false)} style={{marginTop:"150px",backgroundColor:"white"}}>
-        <ModalHeader toggle={() => setShowAddEmployeeForm(false)}>
-          <h1>Add Employee</h1>
-        </ModalHeader>
+      <Card className="border-0 shadow-sm">
+        <CardBody>
+          <Table hover responsive>
+            <thead className="table-light">
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Phone</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employees.map((emp) => (
+                <tr key={emp._id}>
+                  <td>{emp.username}</td>
+                  <td>{emp.email}</td>
+                  <td><span className="badge bg-info text-dark">{emp.role}</span></td>
+                  <td>{emp.phone}</td>
+                  <td>
+                    <Button size="sm" outline color="danger" onClick={() => handleDelete(emp._id)}>
+                        <FaTrash />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </CardBody>
+      </Card>
+
+      <Modal isOpen={modalOpen} toggle={() => setModalOpen(false)}>
+        <ModalHeader toggle={() => setModalOpen(false)}>Add New Employee</ModalHeader>
         <ModalBody>
           <Form onSubmit={handleAddEmployee}>
             <FormGroup>
-              <Label for="name">Name</Label>
-              <Input type="text" id="name" value={newEmployee.name} onChange={(e) => setNewEmployee({ ...newEmployee, name: e.target.value })} required />
+              <Label>Name</Label>
+              <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
             </FormGroup>
             <FormGroup>
-              <Label for="email">Email</Label>
-              <Input type="email" id="email" value={newEmployee.email} onChange={(e) => setNewEmployee({ ...newEmployee, email: e.target.value })} required />
+              <Label>Email</Label>
+              <Input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />
             </FormGroup>
             <FormGroup>
-              <Label for="phone">Phone</Label>
-              <Input type="text" id="phone" value={newEmployee.phone} onChange={(e) => setNewEmployee({ ...newEmployee, phone: e.target.value })} required />
+              <Label>Phone</Label>
+              <Input value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} required />
             </FormGroup>
             <FormGroup>
-              <Label for="role">Role</Label>
-              <Input type="select" id="role" value={newEmployee.role} onChange={(e) => setNewEmployee({ ...newEmployee, role: e.target.value })} required>
+              <Label>Role</Label>
+              <Input type="select" value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} required>
                 <option value="">Select Role</option>
+                <option value="admin">Admin</option>
                 <option value="Client Manager">Client Manager</option>
-                <option value="Invoice Manager">Invoice Manager</option>
-                <option value="Payment Manager">Payment Manager</option>
                 <option value="Product Manager">Product Manager</option>
+                <option value="Invoice Manager">Invoice Manager</option>
               </Input>
             </FormGroup>
-            <Button type="submit" color="success">Add Employee</Button>
+            <Button color="success" block type="submit" disabled={loading}>
+                {loading ? "Creating..." : "Create Employee"}
+            </Button>
           </Form>
         </ModalBody>
       </Modal>
