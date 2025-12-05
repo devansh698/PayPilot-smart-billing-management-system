@@ -1,11 +1,13 @@
-// src/components/client/ClientPayment.jsx
+// src/components/client/ClientPayments.jsx
 import React, { useEffect, useState } from 'react';
 import { 
-  Container, Table, Button, Modal, Form, 
-  FormGroup, Label, Input, Alert, Card, Badge, Row, Col 
+  Container, Table, Button, Modal, ModalHeader, ModalBody, ModalFooter, 
+  Input, Alert, Card, Badge, Row, Col 
 } from 'reactstrap';
 import axios from 'axios';
-import { FiDollarSign, FiCheckCircle, FiClock, FiXCircle } from 'react-icons/fi';
+import { FiDollarSign, FiCheckCircle, FiClock, FiXCircle, FiRefreshCw } from 'react-icons/fi';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { curentuser } from '../api';
 import './ClientPayment.css';
 
@@ -16,35 +18,44 @@ const ClientPayment = () => {
     const [selectedInvoice, setSelectedInvoice] = useState(null);
     const [totalAmount, setTotalAmount] = useState(0);
     const [modal, setModal] = useState(false);
-    const [error, setError] = useState('');
-    const [user, setUser] = useState(curentuser()._id);
-    const [loading, setLoading] = useState({
-        invoices: true,
-        payments: true
-    });
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState({ invoices: true, payments: true, processing: false });
+
+    // Load user and data on mount
+    useEffect(() => {
+        const userData = curentuser();
+        if(userData){
+             setUser(userData._id);
+             fetchInvoices();
+             fetchPreviousPayments(userData._id);
+        }
+    }, []);
 
     const fetchInvoices = async () => {
         try {
+            setLoading(prev => ({ ...prev, invoices: true }));
             const response = await axios.get('/api/clientroutes/invoices');
             setAllInvoices(response.data);
             const pendingInvoices = response.data.filter(invoice => invoice.paymentStatus === 'Pending');
             setInvoices(pendingInvoices);
-            setLoading(prev => ({ ...prev, invoices: false }));
         } catch (error) {
             console.error('Error fetching invoices:', error);
-            setError('Failed to load invoices');
+            toast.error(error.response?.data?.message || 'Failed to load invoices');
+        } finally {
             setLoading(prev => ({ ...prev, invoices: false }));
         }
     };
 
-    const fetchPreviousPayments = async () => {
+    const fetchPreviousPayments = async (userId) => {
         try {
-            const response = await axios.get(`/api/clientroutes/payments?clientId=${user}`);
+            setLoading(prev => ({ ...prev, payments: true }));
+            const idToUse = userId || user;
+            const response = await axios.get(`/api/clientroutes/payments?clientId=${idToUse}`);
             setPreviousPayments(response.data);
-            setLoading(prev => ({ ...prev, payments: false }));
         } catch (error) {
-            console.error('Error fetching previous payments:', error);
-            setError('Failed to load payment history');
+            console.error('Error fetching history:', error);
+            toast.error('Failed to load payment history');
+        } finally {
             setLoading(prev => ({ ...prev, payments: false }));
         }
     };
@@ -61,268 +72,230 @@ const ClientPayment = () => {
         }
     };
 
-    const getPaymentStatusBadge = (status) => {
-        const statusMap = {
-            'Paid': { color: 'success', icon: <FiCheckCircle /> },
-            'Pending': { color: 'warning', icon: <FiClock /> },
-            'Failed': { color: 'danger', icon: <FiXCircle /> }
-        };
-        const statusInfo = statusMap[status] || { color: 'secondary' };
-        return (
-            <Badge color={statusInfo.color} className="status-badge">
-                {statusInfo.icon} {status}
-            </Badge>
-        );
-    };
-
-    const handlePayment = async () => {
+    const handlePaymentInitiation = async () => {
         if (!selectedInvoice) {
-            setError('Please select an invoice.');
+            toast.warning('Please select an invoice to pay.');
             return;
         }
 
-        const options = {
-            key: 'YOUR_RAZORPAY_TEST_KEY_ID',
-            amount: totalAmount * 100,
-            currency: 'INR',
-            name: 'Your Company Name',
-            description: 'Payment for Invoice No: ' + selectedInvoice.invoiceNo,
-            image: 'https://your-logo-url.com/logo.png',
-            handler: async function (response) {
-                try {
-                    await axios.post('/api/clientroutes/payments', {
-                        invoiceId: selectedInvoice._id,
-                        clientId: user,
-                        paymentMethod: 'Razorpay',
-                        paymentId: response.razorpay_payment_id,
-                        amount: totalAmount,
-                        invoiceNo: selectedInvoice.invoiceNo
-                    });
-                    await axios.put(`/api/clientroutes/invoices/${selectedInvoice._id}`, {
-                        paymentStatus: 'Paid'
-                    });
-                    alert('Payment successful!');
-                    resetPaymentState();
-                    fetchPreviousPayments();
-                    fetchInvoices();
-                } catch (error) {
-                    console.error('Error making payment:', error);
-                    setError('Payment failed. Please try again.');
-                }
-            },
-            prefill: {
-                name: 'Client Name',
-                email: 'client@example.com',
-                contact: '9999999999'
-            },
-            theme: {
-                color: '#3B82F6'
-            }
-        };
+        setLoading(prev => ({ ...prev, processing: true }));
 
-        const razorpay = new window.Razorpay(options);
-        razorpay.open();
+        try {
+            // 1. Create Order on Backend
+            const orderUrl = "/api/payments/razorpay-order";
+            const { data: orderData } = await axios.post(orderUrl, { 
+                amount: totalAmount,
+                currency: "INR" 
+            });
+
+            // 2. Open Razorpay
+            const options = {
+                key: process.env.REACT_APP_RAZORPAY_KEY_ID || "YOUR_TEST_KEY_HERE", // Add this to your .env file
+                amount: orderData.amount,
+                currency: orderData.currency,
+                name: "PayPilot Billing",
+                description: `Invoice #${selectedInvoice.invoiceNo}`,
+                order_id: orderData.id, // This comes from the backend
+                handler: async function (response) {
+                    // 3. Verify Payment on Backend
+                    try {
+                        const verifyUrl = "/api/payments/razorpay-verify";
+                        await axios.post(verifyUrl, {
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                        });
+
+                        // 4. Save Payment Record & Update Invoice
+                        await axios.post('/api/clientroutes/payments', {
+                            invoiceId: selectedInvoice._id,
+                            clientId: user,
+                            paymentMethod: 'Razorpay',
+                            paymentId: response.razorpay_payment_id,
+                            amount: totalAmount,
+                            invoiceNo: selectedInvoice.invoiceNo
+                        });
+
+                        // 5. Update Invoice Status
+                        await axios.put(`/api/clientroutes/invoices/${selectedInvoice._id}`, {
+                            paymentStatus: 'Paid'
+                        });
+
+                        toast.success('Payment Verified & Successful!');
+                        resetPaymentState();
+                        fetchPreviousPayments(user);
+                        fetchInvoices();
+
+                    } catch (verifyError) {
+                        console.error(verifyError);
+                        toast.error("Payment verification failed. Please contact support.");
+                    }
+                },
+                prefill: {
+                    name: "Client User", // You can fetch real user details here
+                    email: "client@example.com",
+                    contact: "9999999999"
+                },
+                theme: { color: "#3B82F6" },
+                modal: {
+                    ondismiss: function() {
+                        setLoading(prev => ({ ...prev, processing: false }));
+                        toast.info('Payment cancelled.');
+                    }
+                }
+            };
+
+            const razorpay = new window.Razorpay(options);
+            razorpay.open();
+            toggleModal(); // Close our custom modal, let Razorpay take over
+
+        } catch (error) {
+            console.error("Payment init error:", error);
+            toast.error(error.response?.data?.message || "Could not initiate payment.");
+            setLoading(prev => ({ ...prev, processing: false }));
+        }
     };
 
     const resetPaymentState = () => {
         setSelectedInvoice(null);
         setTotalAmount(0);
-        toggleModal();
+        setLoading(prev => ({ ...prev, processing: false }));
     };
 
-    useEffect(() => {
-        fetchInvoices();
-        fetchPreviousPayments();
-        setUser(curentuser()._id);
-    }, []);
+    const getStatusBadge = (status) => {
+        const colors = { 'Paid': 'success', 'Pending': 'warning', 'Failed': 'danger' };
+        return <Badge color={colors[status] || 'secondary'}>{status}</Badge>;
+    };
 
     return (
-        <Container fluid className="client-payment">
-            <Row className="page-header">
-                <Col>
-                    <h1>Payments</h1>
-                    <p className="subtitle">Manage your invoices and payments</p>
-                </Col>
-            </Row>
-
-            {error && <Alert color="danger" className="alert-error">{error}</Alert>}
+        <Container fluid className="client-payment p-4">
+            <ToastContainer position="top-right" autoClose={3000} />
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 className="fw-bold text-primary">Invoices & Payments</h2>
+                    <p className="text-muted">Manage your outstanding dues safely.</p>
+                </div>
+                <Button outline color="primary" onClick={() => { fetchInvoices(); fetchPreviousPayments(user); }}>
+                    <FiRefreshCw /> Refresh
+                </Button>
+            </div>
 
             <Row>
                 <Col lg={8}>
-                    <Card className="payment-card">
-                        <div className="card-header">
-                            <h3>Pending Invoices</h3>
-                            {selectedInvoice && (
-                                <div className="total-amount">
-                                    <span>Selected Amount:</span>
-                                    <strong>Rs.{totalAmount.toFixed(2)}</strong>
-                                </div>
-                            )}
+                    <Card className="shadow-sm border-0 mb-4">
+                        <div className="card-header bg-white border-bottom p-3">
+                            <h5 className="mb-0">Pending Invoices</h5>
                         </div>
-                        {loading.invoices ? (
-                            <div className="loading-placeholder">
-                                <div className="spinner"></div>
-                                <p>Loading invoices...</p>
-                            </div>
-                        ) : (
-                            <div className="table-responsive">
-                                <Table hover className="invoices-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Select</th>
-                                            <th>Invoice No.</th>
-                                            <th>Date</th>
-                                            <th>Status</th>
-                                            <th>Amount</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {invoices.length > 0 ? (
-                                            invoices.map(invoice => (
-                                                <tr 
-                                                    key={invoice._id} 
-                                                    className={selectedInvoice?._id === invoice._id ? 'selected' : ''}
-                                                    onClick={() => handleSelectInvoice(invoice)}
-                                                >
-                                                    <td>
-                                                        <Input
-                                                            type="radio"
-                                                            checked={selectedInvoice?._id === invoice._id}
-                                                            onChange={() => {}}
-                                                        />
-                                                    </td>
-                                                    <td>{invoice.invoiceNo}</td>
-                                                    <td>{new Date(invoice.date).toLocaleDateString()}</td>
-                                                    <td>{getPaymentStatusBadge(invoice.paymentStatus)}</td>
-                                                    <td>Rs.{invoice.totalAmount.toFixed(2)}</td>
-                                                </tr>
-                                            ))
-                                        ) : (
-                                            <tr>
-                                                <td colSpan="5" className="no-invoices">
-                                                    <FiDollarSign className="empty-icon" />
-                                                    <p>No pending invoices found</p>
+                        <div className="table-responsive">
+                            <Table hover className="align-middle mb-0">
+                                <thead className="table-light">
+                                    <tr>
+                                        <th width="5%">Select</th>
+                                        <th>Invoice #</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                        <th className="text-end">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {loading.invoices ? (
+                                        <tr><td colSpan="5" className="text-center p-4">Loading...</td></tr>
+                                    ) : invoices.length > 0 ? (
+                                        invoices.map(inv => (
+                                            <tr 
+                                                key={inv._id} 
+                                                className={selectedInvoice?._id === inv._id ? 'table-primary' : ''}
+                                                style={{cursor: 'pointer'}}
+                                                onClick={() => handleSelectInvoice(inv)}
+                                            >
+                                                <td>
+                                                    <Input type="radio" checked={selectedInvoice?._id === inv._id} readOnly/>
                                                 </td>
+                                                <td className="fw-bold">{inv.invoiceNo}</td>
+                                                <td>{new Date(inv.date).toLocaleDateString()}</td>
+                                                <td>{getStatusBadge(inv.paymentStatus)}</td>
+                                                <td className="text-end fw-bold">₹{inv.totalAmount.toFixed(2)}</td>
                                             </tr>
-                                        )}
-                                    </tbody>
-                                </Table>
-                            </div>
-                        )}
-                        <div className="card-footer">
-                            <Button 
-                                color="primary" 
-                                onClick={toggleModal} 
-                                disabled={!selectedInvoice}
-                                className="pay-btn"
-                            >
-                                Pay Selected Invoice
-                            </Button>
+                                        ))
+                                    ) : (
+                                        <tr><td colSpan="5" className="text-center p-4 text-muted">No pending invoices. Great job!</td></tr>
+                                    )}
+                                </tbody>
+                            </Table>
                         </div>
                     </Card>
                 </Col>
 
                 <Col lg={4}>
-                    <Card className="summary-card">
-                        <div className="card-header">
-                            <h3>Payment Summary</h3>
-                        </div>
-                        <div className="summary-content">
-                            <div className="summary-item">
-                                <span>Total Invoices:</span>
-                                <strong>{allInvoices.length}</strong>
+                    <Card className="shadow-sm border-0 mb-4 bg-primary text-white">
+                        <div className="card-body">
+                            <h5 className="card-title">Payment Summary</h5>
+                            <hr className="opacity-25"/>
+                            <div className="d-flex justify-content-between mb-2">
+                                <span>Selected Invoice:</span>
+                                <span className="fw-bold">{selectedInvoice ? selectedInvoice.invoiceNo : '-'}</span>
                             </div>
-                            <div className="summary-item">
-                                <span>Pending:</span>
-                                <strong>{invoices.length}</strong>
+                            <div className="d-flex justify-content-between mb-4">
+                                <span>Total Payable:</span>
+                                <span className="fs-4 fw-bold">₹{totalAmount.toFixed(2)}</span>
                             </div>
-                            <div className="summary-item">
-                                <span>Paid:</span>
-                                <strong>{allInvoices.length - invoices.length}</strong>
-                            </div>
-                            <div className="summary-item total">
-                                <span>Total Amount Due:</span>
-                                <strong>
-                                    Rs.{invoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0).toFixed(2)}
-                                </strong>
-                            </div>
+                            <Button 
+                                color="light" 
+                                block 
+                                className="text-primary fw-bold w-100"
+                                disabled={!selectedInvoice || loading.processing}
+                                onClick={toggleModal}
+                            >
+                                {loading.processing ? 'Processing...' : 'Pay Now'}
+                            </Button>
                         </div>
                     </Card>
                 </Col>
             </Row>
 
-            <Row className="mt-4">
-                <Col>
-                    <Card className="history-card">
-                        <div className="card-header">
-                            <h3>Payment History</h3>
+            {/* Confirmation Modal */}
+            <Modal isOpen={modal} toggle={toggleModal} centered>
+                <ModalHeader toggle={toggleModal}>Confirm Payment</ModalHeader>
+                <ModalBody>
+                    <p>You are initiating a secure payment via Razorpay.</p>
+                    <div className="bg-light p-3 rounded">
+                        <div className="d-flex justify-content-between">
+                            <span>Invoice Number:</span>
+                            <strong>{selectedInvoice?.invoiceNo}</strong>
                         </div>
-                        {loading.payments ? (
-                            <div className="loading-placeholder">
-                                <div className="spinner"></div>
-                                <p>Loading payment history...</p>
-                            </div>
-                        ) : (
-                            <div className="table-responsive">
-                                <Table hover className="history-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Payment ID</th>
-                                            <th>Invoice No.</th>
-                                            <th>Date</th>
-                                            <th>Method</th>
-                                            <th>Amount</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {previousPayments.length > 0 ? (
-                                            previousPayments.map(payment => {
-                                                const invoice = allInvoices.find(inv => inv._id === payment.invoiceId);
-                                                return (
-                                                    <tr key={payment._id}>
-                                                        <td>#{payment._id.slice(-6)}</td>
-                                                        <td>{invoice ? invoice.invoiceNo : 'N/A'}</td>
-                                                        <td>{new Date(payment.createdAt).toLocaleDateString()}</td>
-                                                        <td>{payment.paymentMethod}</td>
-                                                        <td>Rs.{payment.amount.toFixed(2)}</td>
-                                                        <td>{getPaymentStatusBadge('Paid')}</td>
-                                                    </tr>
-                                                );
-                                            })
-                                        ) : (
-                                            <tr>
-                                                <td colSpan="6" className="no-payments">
-                                                    <FiDollarSign className="empty-icon" />
-                                                    <p>No payment history found</p>
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </Table>
-                            </div>
-                        )}
-                    </Card>
-                </Col>
-            </Row>
-
-            <Modal isOpen={modal} toggle={toggleModal} className="payment-modal">
-                <div className="modal-header">
-                    <h5 className="modal-title">Confirm Payment</h5>
-                </div>
-                <div className="modal-body">
-                    <p>You are about to make a payment of <strong>Rs.{totalAmount.toFixed(2)}</strong> for:</p>
-                    <div className="invoice-details">
-                        <p><strong>Invoice No:</strong> {selectedInvoice?.invoiceNo}</p>
-                        <p><strong>Date:</strong> {selectedInvoice && new Date(selectedInvoice.date).toLocaleDateString()}</p>
+                        <div className="d-flex justify-content-between mt-2">
+                            <span>Amount:</span>
+                            <strong className="text-primary">₹{totalAmount.toFixed(2)}</strong>
+                        </div>
                     </div>
-                    <p className="note">You will be redirected to Razorpay to complete your payment.</p>
-                </div>
-                <div className="modal-footer">
-                    <Button color="secondary" onClick={toggleModal}>Cancel</Button>
-                    <Button color="primary" onClick={handlePayment}>Proceed to Payment</Button>
-                </div>
+                </ModalBody>
+                <ModalFooter>
+                    <Button color="secondary" onClick={toggleModal} disabled={loading.processing}>Cancel</Button>
+                    <Button color="primary" onClick={handlePaymentInitiation} disabled={loading.processing}>
+                        {loading.processing ? 'Processing...' : 'Proceed to Pay'}
+                    </Button>
+                </ModalFooter>
             </Modal>
+
+            {/* Previous History Section (Simplified for brevity) */}
+            <h5 className="mt-4 mb-3">Payment History</h5>
+             <Card className="shadow-sm border-0">
+                <Table responsive>
+                    <thead><tr><th>Payment ID</th><th>Invoice</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead>
+                    <tbody>
+                        {previousPayments.map(p => (
+                            <tr key={p._id}>
+                                <td><small className="text-muted">#{p.paymentId?.slice(-8)}</small></td>
+                                <td>{p.invoiceNo || 'N/A'}</td>
+                                <td>{new Date(p.createdAt).toLocaleDateString()}</td>
+                                <td className="text-success">₹{p.amount}</td>
+                                <td><Badge color="success">Paid</Badge></td>
+                            </tr>
+                        ))}
+                         {previousPayments.length === 0 && <tr><td colSpan="5" className="text-center text-muted">No history found</td></tr>}
+                    </tbody>
+                </Table>
+            </Card>
         </Container>
     );
 };

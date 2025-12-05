@@ -102,4 +102,32 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+router.post('/rosourpay-endpoint', async (req, res) => {
+  try {
+    console.log('[Payments] incoming body:', req.body);
+    console.log('[Payments] using key:', process.env.ROSOURPAY_TEST_KEY ? 'test-key-present' : 'NO-TEST-KEY');
+    
+    const ROSOURPAY_KEY = process.env.ROSOURPAY_TEST_KEY || process.env.ROSOURPAY_KEY;
+    if (!ROSOURPAY_KEY) {
+      console.warn('[Payments] no rosourpay key configured (check .env)');
+    }
+    // pass ROSOURPAY_KEY to provider client
+
+    // when calling rosourpay, wrap call:
+    const resp = await someRosourpayClient.charge({
+      ...req.body,
+      apiKey: ROSOURPAY_KEY,
+      key: ROSOURPAY_KEY
+    });
+    console.log('[Payments] rosourpay response:', resp && resp.data ? resp.data : resp);
+    res.json({ success: true, providerResponse: resp.data || resp });
+  } catch (err) {
+    console.error('[Payments] error', err.response ? err.response.data : err.message || err);
+    return res.status(err.response?.status || 500).json({
+      success: false,
+      error: err.response?.data || err.message || 'Internal Server Error'
+    });
+  }
+});
+
 module.exports = router;

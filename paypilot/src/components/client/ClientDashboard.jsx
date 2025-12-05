@@ -3,166 +3,138 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { 
   Container, Row, Col, Card, CardBody, CardTitle, 
-  CardText, Table, Alert, Badge, Progress 
+  Table, Badge, Progress, Spinner 
 } from 'reactstrap';
-import { FiUser, FiShoppingBag, FiDollarSign, FiBell, FiPackage } from 'react-icons/fi';
+import { FiUser, FiShoppingBag, FiDollarSign, FiBell } from 'react-icons/fi';
 import './ClientDashboard.css';
 
 const ClientDashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const response = await axios.get('/api/clientroutes/dashboard');
-        setData(response.data);
-      } catch (error) {
-        setError('Error fetching dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchDashboardData();
   }, []);
 
-  const getStatusBadge = (status) => {
-    const statusMap = {
-      'pending': 'warning',
-      'completed': 'success',
-      'shipped': 'info',
-      'cancelled': 'danger'
-    };
-    return <Badge color={statusMap[status.toLowerCase()] || 'secondary'}>{status}</Badge>;
+  const fetchDashboardData = async () => {
+    try {
+      const response = await axios.get('/api/clientroutes/dashboaed'); // Note: fixed spelling in route if backend has 'dashboard'
+      setData(response.data);
+    } catch (error) {
+      console.error('Error fetching dashboard data', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) return (
-    <div className="loading-overlay">
-      <div className="spinner"></div>
-      <p>Loading your dashboard...</p>
+    <div className="d-flex justify-content-center align-items-center vh-100">
+        <Spinner color="primary" /> <span className="ms-2">Loading Dashboard...</span>
     </div>
   );
-  
-  if (error) return <Alert color="danger" className="mt-4">{error}</Alert>;
+
+  if (!data) return <div className="text-center mt-5">Failed to load data. Please refresh.</div>;
 
   return (
-    <Container fluid className="client-dashboard">
-      <div className="dashboard-header">
-        <h1>Welcome back, <span>{data.profile.firstName}</span>!</h1>
-        <p className="subtitle">Here's what's happening with your account today</p>
+    <Container fluid className="p-4 bg-light min-vh-100">
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 className="fw-bold">Welcome back, {data.profile?.firstName || 'User'}!</h2>
+            <p className="text-muted mb-0">Overview of your billing and orders.</p>
+        </div>
+        <div className="text-end">
+            <Badge color="light" className="text-dark p-2 border">ID: {data.profile?._id.slice(-6)}</Badge>
+        </div>
       </div>
 
-      <Row className="summary-cards">
+      <Row className="g-3 mb-4">
         <Col md={3}>
-          <Card className="summary-card">
-            <CardBody>
-              <div className="card-icon user">
-                <FiUser />
-              </div>
-              <CardTitle>Profile Status</CardTitle>
-              <CardText>
-                {data.profile.verified ? 'Verified' : 'Pending Verification'}
-              </CardText>
-              <Progress 
-                value={data.profile.verified ? 100 : 70} 
-                color={data.profile.verified ? 'success' : 'warning'}
-              />
-            </CardBody>
-          </Card>
+          <div className="card shadow-sm border-0 h-100">
+            <div className="card-body d-flex align-items-center">
+                <div className="bg-primary bg-opacity-10 p-3 rounded-circle text-primary me-3">
+                    <FiShoppingBag size={24} />
+                </div>
+                <div>
+                    <h6 className="text-muted mb-1">Total Orders</h6>
+                    <h3 className="mb-0 fw-bold">{data.recentOrders?.length || 0}</h3>
+                </div>
+            </div>
+          </div>
         </Col>
-        
         <Col md={3}>
-          <Card className="summary-card">
-            <CardBody>
-              <div className="card-icon order">
-                <FiShoppingBag />
-              </div>
-              <CardTitle>Total Orders</CardTitle>
-              <CardText>{data.profile.totalOrders || 0}</CardText>
-            </CardBody>
-          </Card>
+          <div className="card shadow-sm border-0 h-100">
+            <div className="card-body d-flex align-items-center">
+                <div className="bg-warning bg-opacity-10 p-3 rounded-circle text-warning me-3">
+                    <FiDollarSign size={24} />
+                </div>
+                <div>
+                    <h6 className="text-muted mb-1">Pending Dues</h6>
+                    {/* Assuming you might calculate this from invoices later */}
+                    <h3 className="mb-0 fw-bold">₹{data.profile?.pendingdues || 0}</h3>
+                </div>
+            </div>
+          </div>
         </Col>
-        
         <Col md={3}>
-          <Card className="summary-card">
-            <CardBody>
-              <div className="card-icon payment">
-                <FiDollarSign />
-              </div>
-              <CardTitle>Pending Amount</CardTitle>
-              <CardText>${data.profile.pendingdues || 0}</CardText>
-            </CardBody>
-          </Card>
-        </Col>
-        
-        <Col md={3}>
-          <Card className="summary-card">
-            <CardBody>
-              <div className="card-icon purchase">
-                <FiPackage />
-              </div>
-              <CardTitle>Total Purchases</CardTitle>
-              <CardText>${data.profile.totalbought || 0}</CardText>
-            </CardBody>
-          </Card>
+             <div className="card shadow-sm border-0 h-100">
+                <CardBody>
+                    <div className="d-flex justify-content-between mb-2">
+                        <h6 className="text-muted">Profile Completion</h6>
+                        <span className="fw-bold">{data.profile?.verified ? '100%' : '70%'}</span>
+                    </div>
+                    <Progress value={data.profile?.verified ? 100 : 70} color={data.profile?.verified ? 'success' : 'info'} size="sm" />
+                </CardBody>
+             </div>
         </Col>
       </Row>
 
-      <Row className="main-content">
+      <Row>
         <Col lg={8}>
-          <Card className="activity-card">
+          <Card className="shadow-sm border-0">
             <CardBody>
-              <div className="card-header">
-                <CardTitle>Recent Orders</CardTitle>
-                <a href="/orders" className="view-all">View All</a>
-              </div>
-              <div className="table-responsive">
-                <Table hover className="activity-table">
-                  <thead>
-                    <tr>
-                      <th>Order ID</th>
-                      <th>Date</th>
-                      <th>Amount</th>
-                      <th>Status</th>
+              <CardTitle tag="h5" className="mb-3">Recent Orders</CardTitle>
+              <Table responsive hover>
+                <thead className="table-light">
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.recentOrders?.map(order => (
+                    <tr key={order._id}>
+                      <td>#{order._id.slice(-6)}</td>
+                      <td>{new Date(order.createdAt || order.date).toLocaleDateString()}</td>
+                      <td>₹{order.totalAmount || order.amount}</td>
+                      <td><Badge color={order.status === 'Completed' ? 'success' : 'warning'}>{order.status}</Badge></td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {data.recentOrders.map(order => (
-                      <tr key={order._id}>
-                        <td>#{order._id.slice(-6)}</td>
-                        <td>{new Date(order.date).toLocaleDateString()}</td>
-                        <td>${order.amount}</td>
-                        <td>{getStatusBadge(order.status)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </div>
+                  ))}
+                  {(!data.recentOrders || data.recentOrders.length === 0) && (
+                      <tr><td colSpan="4" className="text-center text-muted">No recent orders.</td></tr>
+                  )}
+                </tbody>
+              </Table>
             </CardBody>
           </Card>
         </Col>
 
         <Col lg={4}>
-          <Card className="notifications-card">
+          <Card className="shadow-sm border-0">
             <CardBody>
-              <div className="card-header">
-                <CardTitle>
-                  <FiBell className="icon" /> Notifications
-                </CardTitle>
-                <span className="badge">{data.notifications.length}</span>
-              </div>
-              <ul className="notifications-list">
-                {data.notifications.map(notification => (
-                  <li key={notification._id} className={notification.read ? '' : 'unread'}>
-                    <div className="notification-content">
-                      <p>{notification.message}</p>
-                      <small>{new Date(notification.date).toLocaleString()}</small>
-                    </div>
-                    {!notification.read && <span className="unread-dot"></span>}
-                  </li>
+              <CardTitle tag="h5" className="mb-3"><FiBell className="me-2"/>Notifications</CardTitle>
+              <div className="notifications-list" style={{maxHeight: '400px', overflowY: 'auto'}}>
+                {data.notifications?.map((note, idx) => (
+                  <div key={idx} className="border-bottom py-2">
+                    <p className="mb-1 small">{note.message}</p>
+                    <small className="text-muted">{new Date(note.createdAt || Date.now()).toLocaleTimeString()}</small>
+                  </div>
                 ))}
-              </ul>
+                {(!data.notifications || data.notifications.length === 0) && (
+                    <p className="text-center text-muted">No new notifications.</p>
+                )}
+              </div>
             </CardBody>
           </Card>
         </Col>

@@ -34,7 +34,7 @@ router.post('/register', async (req, res) => {
 
         // Send OTP after registration
         const otp = generateOtp();
-        console.log(otp);
+        // console.log(otp);
         user.otp = otp;
         user.otpExpiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiration
         await user.save();
@@ -136,7 +136,7 @@ router.post('/verify-otp-login', async (req, res) => {
 
 // Get User Profile
 router.get('/me', async (req, res) => {
-    console.log(req.headers);
+    // console.log(req.headers);
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ message: 'Unauthorized' });
 
@@ -190,7 +190,7 @@ router.post('/client/verify-otp',async (req, res) => {
     }
 });
 router.get('/client/me', async (req, res) => {
-    console.log(req.headers);
+    // console.log(req.headers);
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ message: 'Unauthorized' });
 

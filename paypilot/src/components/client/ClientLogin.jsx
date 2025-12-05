@@ -1,45 +1,36 @@
-// src/components/ClientLogin.jsx
+// src/components/client/ClientLogin.jsx
 import React, { useState } from 'react';
 import { Container, Form, FormGroup, Label, Input, Button, Alert } from 'reactstrap';
 import axios from 'axios';
 import Lottie from 'lottie-react';
 import animationData from '../animation/Animation - 1733831017954.json';
-import animationData1 from '../animation/Animation - registation sucessfull.json';
 import { FiMail, FiLock, FiArrowRight } from 'react-icons/fi';
+import { toast, ToastContainer } from 'react-toastify'; 
 import './ClientLogin.css';
 
 const ClientLogin = () => {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [isOtpSent, setIsOtpSent] = useState(false);
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
 
-  const isValidEmail = (email) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-  };
+  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
-    
-    if (!isValidEmail(email)) {
-      setError('Please enter a valid email address');
-      return;
-    }
+    if (!isValidEmail(email)) return toast.error('Please enter a valid email address');
 
     setLoading(true);
     try {
       const response = await axios.post('/api/auth/client/send-otp', { email });
       if (response.data.success) {
         setIsOtpSent(true);
-      } else {
-        setError('Failed to send OTP. Please try again.');
+        toast.success('OTP sent successfully!');
       }
     } catch (error) {
-      setError('An error occurred. Please try again later.');
+      // Backend Error Handling
+      const msg = error.response?.data?.message || 'Failed to send OTP.';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -47,27 +38,19 @@ const ClientLogin = () => {
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
-    setError('');
-    
-    if (otp.length < 6) {
-      setError('Please enter a valid 6-digit OTP');
-      return;
-    }
+    if (otp.length < 6) return toast.error('Please enter a valid 6-digit OTP');
 
     setLoading(true);
     try {
       const response = await axios.post('/api/auth/client/verify-otp', { email, otp });
       if (response.data.success) {
         localStorage.setItem('token', response.data.token);
-        setSuccess(true);
-        setTimeout(() => {
-          window.location.href = '/client-dashboard';
-        }, 2000);
-      } else {
-        setError('Invalid OTP. Please try again.');
+        toast.success('Login Successful! Redirecting...');
+        setTimeout(() => window.location.href = '/client-dashboard', 1500);
       }
     } catch (error) {
-      setError('An error occurred. Please try again later.');
+      const msg = error.response?.data?.message || 'Invalid OTP.';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -75,103 +58,56 @@ const ClientLogin = () => {
 
   return (
     <div className="login-container">
-      {success && (
-        <div className="success-overlay">
-          <div className="success-animation">
-            <Lottie animationData={animationData1} />
-          </div>
-        </div>
-      )}
-      
+      <ToastContainer position="top-center" />
       <div className="login-content">
         <div className="login-form-container">
           <div className="login-header">
-            <h1>Welcome Back</h1>
-            <p>Sign in to access your client dashboard</p>
+            <h1>Client Portal</h1>
+            <p>Secure login for billing & orders</p>
           </div>
-          
-          {error && <Alert color="danger" className="login-alert">{error}</Alert>}
           
           {!isOtpSent ? (
             <Form onSubmit={handleLogin} className="login-form">
               <FormGroup>
-                <Label for="email" className="form-label">
-                  <FiMail className="input-icon" /> Email Address
-                </Label>
+                <Label>Email Address</Label>
                 <Input
                   type="email"
-                  id="email"
-                  placeholder="Enter your email"
+                  placeholder="name@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="form-input"
-                  invalid={!isValidEmail(email) && email.length > 0}
+                  disabled={loading}
                 />
               </FormGroup>
-              
-              <Button 
-                type="submit" 
-                color="primary" 
-                className="login-btn"
-                disabled={loading || !isValidEmail(email)}
-              >
-                {loading ? (
-                  <span className="btn-loader"></span>
-                ) : (
-                  <>
-                    Send OTP <FiArrowRight className="btn-icon" />
-                  </>
-                )}
+              <Button type="submit" color="primary" className="w-100" disabled={loading}>
+                {loading ? 'Sending OTP...' : 'Send OTP'} <FiArrowRight />
               </Button>
             </Form>
           ) : (
             <Form onSubmit={handleVerifyOtp} className="login-form">
+               <Alert color="info">OTP sent to {email}</Alert>
               <FormGroup>
-                <Label for="otp" className="form-label">
-                  <FiLock className="input-icon" /> Enter OTP
-                </Label>
+                <Label>Enter OTP</Label>
                 <Input
                   type="text"
-                  id="otp"
-                  placeholder="Enter the 6-digit OTP"
+                  placeholder="123456"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
-                  className="form-input"
                   maxLength="6"
+                  className="text-center letter-spacing-2"
+                  disabled={loading}
                 />
-                <p className="otp-note">
-                  We've sent a 6-digit OTP to {email}
-                </p>
               </FormGroup>
-              
-              <Button 
-                type="submit" 
-                color="primary" 
-                className="login-btn"
-                disabled={loading || otp.length < 6}
-              >
-                {loading ? (
-                  <span className="btn-loader"></span>
-                ) : (
-                  <>
-                    Verify & Login <FiArrowRight className="btn-icon" />
-                  </>
-                )}
+              <Button type="submit" color="success" className="w-100" disabled={loading}>
+                {loading ? 'Verifying...' : 'Verify & Login'}
               </Button>
-              
-              <button 
-                type="button" 
-                className="resend-link"
-                onClick={() => setIsOtpSent(false)}
-              >
-                Didn't receive OTP? Resend
-              </button>
+              <div className="text-center mt-3">
+                  <small className="text-muted" style={{cursor:'pointer'}} onClick={() => setIsOtpSent(false)}>Wrong Email? Go Back</small>
+              </div>
             </Form>
           )}
         </div>
-        
-        <div className="login-graphic">
-          <Lottie animationData={animationData} />
+        <div className="login-graphic d-none d-md-block">
+          <Lottie animationData={animationData} loop={true} />
         </div>
       </div>
     </div>

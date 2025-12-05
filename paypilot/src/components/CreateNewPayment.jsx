@@ -6,6 +6,7 @@ import {
 } from "reactstrap";
 import { FaCreditCard, FaMoneyBill } from "react-icons/fa";
 import { toast } from "react-toastify";
+import api from './api'; // Adjust the import based on your file structure
 
 const CreateNewPayment = () => {
   const [invoices, setInvoices] = useState([]);
@@ -40,7 +41,7 @@ const CreateNewPayment = () => {
       const { data: order } = await axios.post(orderUrl, { amount: amount });
 
       const options = {
-        key: "rzp_test_YourKeyHere", // Replace with your Public Key
+        key: process.env.REACT_APP_RAZORPAY_KEY_ID, // Replace with your Public Key
         amount: order.amount,
         currency: order.currency,
         name: "PayPilot Demo",
@@ -97,6 +98,21 @@ const CreateNewPayment = () => {
   const handlePayClick = (inv) => {
     setFormData({ clientId: inv.client._id, invoiceId: inv._id, amount: inv.totalAmount });
     setModalOpen(true);
+  };
+
+  const handleCashPayment = async () => {
+    setLoading(true);
+    const payload = { /* your payload data */ };
+    try {
+      const res = await api.post('/payments/initiate', payload); // use src/api.js api instance
+      console.log('[Client] payment init response', res.data);
+      // handle redirect to checkout or provider return URL
+    } catch (err) {
+      console.error('[Client] payment error', err.response ? err.response.data : err.message);
+      toast.error('Payment failed: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

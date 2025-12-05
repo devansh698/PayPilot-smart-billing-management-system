@@ -1,3 +1,4 @@
+// paypilot/src/components/Navbar.js
 import React, { useState, useEffect } from "react";
 import { 
   AppBar, Toolbar, IconButton, Typography, Box, Badge, Menu, MenuItem, 
@@ -5,7 +6,9 @@ import {
 } from "@mui/material";
 import { Menu as MenuIcon, Notifications, ExitToApp, Person } from '@mui/icons-material';
 import { useNavigate } from "react-router-dom";
-import axios from 'axios';
+// FIX: Import the configured 'api' instance instead of raw 'axios'
+// This ensures the Authorization token is sent with the request
+import api from '../api'; 
 import { toast } from 'react-toastify';
 
 const Navbar = ({ onMenuClick, isMobile }) => {
@@ -18,11 +21,15 @@ const Navbar = ({ onMenuClick, isMobile }) => {
   // Fetch Notifications
   const fetchNotifications = async () => {
     try {
-      const res = await axios.get('/api/notifications'); // Ensure this route exists on backend
+      // FIX: Use 'api.get' instead of 'axios.get'
+      const res = await api.get('/notifications'); 
       setNotifications(res.data);
       setUnreadCount(res.data.filter(n => !n.read).length);
     } catch (error) {
-      console.error("Failed to fetch notifications");
+      // It's often good to suppress 401 errors in polling to avoid console spam if logged out
+      if (error.response && error.response.status !== 401) {
+        console.error("Failed to fetch notifications");
+      }
     }
   };
 

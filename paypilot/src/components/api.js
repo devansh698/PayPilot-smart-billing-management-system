@@ -23,3 +23,4 @@ export const fetchPayments = () => api.get('/clientroutes/payments');
 export const processPayment = (data) => api.post('/clientroutes/payments', data);
 export const fetchNotifications = () => api.get('/clientroutes/notifications');
 export const markNotificationAsRead = (id) => api.put(`/clientroutes/notifications/${id}/read`);
+export default api;

@@ -24,3 +24,4 @@ export const login = (credentials) => api.post('/auth/login', credentials);
 export const register= (userData) => api.post('/auth/register', userData);
 export const fetchNotifications = () => api.get('/clientportal/notifications');
 export const markNotificationAsRead = (id) => api.put(`/clientportal/notifications/${id}/read`);
+export default api;
