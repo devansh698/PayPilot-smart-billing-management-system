@@ -1,13 +1,19 @@
+// paypilot/src/components/ClientList.jsx (Improved)
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import { Container, Card, CardBody, Table, Button, Input, Row, Col, Badge } from "reactstrap";
-import { FaEdit, FaTrash, FaSearch, FaUserPlus } from "react-icons/fa";
+import api from "../api"; // Use your configured API instance
+import { 
+  Box, Paper, Typography, Button, TextField, InputAdornment, 
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Chip, IconButton, Tooltip, TablePagination
+} from "@mui/material";
+import { Search, Add, Edit, Delete } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-import { toast } from 'react-toastify'; // Make sure to install this
+import { toast } from 'react-toastify';
 
 const ClientList = () => {
   const [clients, setClients] = useState([]);
-  const [filteredClients, setFilteredClients] = useState([]);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
@@ -17,113 +23,118 @@ const ClientList = () => {
 
   const fetchClients = async () => {
     try {
-      const res = await axios.get("/api/client/");
+      const res = await api.get("/client/"); // Use interceptor api
       setClients(res.data);
-      setFilteredClients(res.data);
     } catch (error) {
       toast.error("Failed to fetch clients");
     }
   };
 
-  const handleSearch = (e) => {
-    const term = e.target.value.toLowerCase();
-    setSearchTerm(term);
-    const filtered = clients.filter(client => 
-      client.firstName.toLowerCase().includes(term) || 
-      client.email.toLowerCase().includes(term)
-    );
-    setFilteredClients(filtered);
-  };
-
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this client?")) {
-      try {
-        await axios.delete(`/api/client/${id}`);
-        toast.success("Client deleted successfully");
-        fetchClients();
-      } catch (error) {
-        toast.error("Error deleting client");
-      }
-    }
-  };
+  const filteredClients = clients.filter(client => 
+    client.firstName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    client.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <Container fluid>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>Client Management</h2>
-        <Button color="primary" onClick={() => navigate("/add-client")}>
-          <FaUserPlus className="me-2"/> Add New Client
+    <Box>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Typography variant="h5" fontWeight="bold" color="text.primary">
+          Client Management
+        </Typography>
+        <Button 
+          variant="contained" 
+          startIcon={<Add />} 
+          onClick={() => navigate("/add-client")}
+          sx={{ borderRadius: 2, textTransform: 'none' }}
+        >
+          Add Client
         </Button>
-      </div>
+      </Box>
 
-      <Card className="shadow-sm border-0">
-        <CardBody>
-          <Row className="mb-3">
-            <Col md={4}>
-              <div className="input-group">
-                <span className="input-group-text bg-light border-end-0"><FaSearch className="text-muted"/></span>
-                <Input 
-                  placeholder="Search by name or email..." 
-                  className="border-start-0"
-                  value={searchTerm}
-                  onChange={handleSearch}
-                />
-              </div>
-            </Col>
-          </Row>
+      <Paper elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid #eee' }}>
+        <TextField
+          fullWidth
+          variant="outlined"
+          placeholder="Search clients..."
+          size="small"
+          sx={{ mb: 2, maxWidth: 400 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start"><Search color="action" /></InputAdornment>
+            ),
+          }}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
 
-          <Table hover responsive className="align-middle">
-            <thead className="table-light">
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Status</th>
-                <th className="text-end">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredClients.map(client => (
-                <tr key={client._id}>
-                  <td>
-                    <div className="d-flex align-items-center">
-                      <div className="bg-light rounded-circle p-2 me-2 text-primary fw-bold">
+        <TableContainer>
+          <Table>
+            <TableHead sx={{ bgcolor: 'action.hover' }}>
+              <TableRow>
+                <TableCell>Name</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredClients
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((client) => (
+                <TableRow key={client._id} hover>
+                  <TableCell>
+                    <Box display="flex" alignItems="center" gap={2}>
+                      <Box 
+                        sx={{ 
+                          width: 40, height: 40, bgcolor: 'primary.light', 
+                          color: 'primary.main', borderRadius: '50%', 
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontWeight: 'bold'
+                        }}
+                      >
                         {client.firstName[0]}
-                      </div>
-                      <div>
-                        <div className="fw-bold">{client.firstName} {client.lastName}</div>
-                        <small className="text-muted">ID: {client._id.slice(-6)}</small>
-                      </div>
-                    </div>
-                  </td>
-                  <td>{client.email}</td>
-                  <td>{client.phone}</td>
-                  <td>
-                    <Badge color={client.verified ? "success" : "warning"} pill>
-                      {client.verified ? "Verified" : "Pending"}
-                    </Badge>
-                  </td>
-                  <td className="text-end">
-                    <Button size="sm" color="light" className="me-2 text-primary">
-                      <FaEdit />
-                    </Button>
-                    <Button size="sm" color="light" className="text-danger" onClick={() => handleDelete(client._id)}>
-                      <FaTrash />
-                    </Button>
-                  </td>
-                </tr>
+                      </Box>
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          {client.firstName} {client.lastName}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {client.phone}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </TableCell>
+                  <TableCell>{client.email}</TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={client.verified ? "Verified" : "Pending"} 
+                      color={client.verified ? "success" : "warning"} 
+                      size="small" 
+                      variant="soft"
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="Edit">
+                      <IconButton size="small" color="primary"><Edit fontSize="small"/></IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton size="small" color="error"><Delete fontSize="small"/></IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
               ))}
-              {filteredClients.length === 0 && (
-                <tr>
-                  <td colSpan="5" className="text-center py-4 text-muted">No clients found</td>
-                </tr>
-              )}
-            </tbody>
+            </TableBody>
           </Table>
-        </CardBody>
-      </Card>
-    </Container>
+        </TableContainer>
+        <TablePagination
+          component="div"
+          count={filteredClients.length}
+          page={page}
+          onPageChange={(e, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(e) => setRowsPerPage(parseInt(e.target.value, 10))}
+        />
+      </Paper>
+    </Box>
   );
 };
-
 export default ClientList;

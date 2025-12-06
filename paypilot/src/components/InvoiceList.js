@@ -3,14 +3,32 @@ import axios from "axios";
 import { Container, Table, Button, Modal, ModalHeader, ModalBody, ModalFooter, Input, Badge, Card, CardBody } from "reactstrap";
 import { FaPrint, FaEye, FaSearch, FaFileInvoiceDollar } from "react-icons/fa";
 import LoadingPage from "./LoadingPage"; // Reuse your loading component
+// Add inside your CreateInvoice or InvoiceDetails component
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 
 const InvoiceList = () => {
+  
   const [invoices, setInvoices] = useState([]);
   const [filteredInvoices, setFilteredInvoices] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [detailsModal, setDetailsModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
+//   const handleDownloadPDF = async () => {
+//   const element = document.getElementById('invoice-preview'); // Add this ID to your invoice card
+//   const canvas = await html2canvas(element);
+//   const data = canvas.toDataURL('image/png');
+  
+//   const pdf = new jsPDF();
+//   const imgProperties = pdf.getImageProperties(data);
+//   const pdfWidth = pdf.internal.pageSize.getWidth();
+//   const pdfHeight = (imgProperties.height * pdfWidth) / imgProperties.width;
+  
+//   pdf.addImage(data, 'PNG', 0, 0, pdfWidth, pdfHeight);
+//   pdf.save(`invoice_${invoiceData.invoiceNo}.pdf`);
+// };
 
   useEffect(() => {
     fetchInvoices();

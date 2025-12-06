@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { 
-  Container, Row, Col, Card, CardBody, Form, FormGroup, 
-  Label, Input, Button, Table, Alert 
+import {
+  Container, Row, Col, Card, CardBody, Form, FormGroup,
+  Label, Input, Button, Table, Alert
 } from "reactstrap";
 import { FaTrash, FaPlus, FaCalculator } from "react-icons/fa";
+// Add inside your CreateInvoice or InvoiceDetails component
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { Autocomplete, TextField } from '@mui/material';
+
 
 const CreateInvoice = () => {
   const [invoiceData, setInvoiceData] = useState({
@@ -13,6 +18,19 @@ const CreateInvoice = () => {
     clientName: "", // For display/logic if needed
     date: new Date().toISOString().split('T')[0]
   });
+  const handleDownloadPDF = async () => {
+    const element = document.getElementById('invoice-preview'); // Add this ID to your invoice card
+    const canvas = await html2canvas(element);
+    const data = canvas.toDataURL('image/png');
+
+    const pdf = new jsPDF();
+    const imgProperties = pdf.getImageProperties(data);
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (imgProperties.height * pdfWidth) / imgProperties.width;
+
+    pdf.addImage(data, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`invoice_${invoiceData.invoiceNo}.pdf`);
+  };
 
   // Lists for Dropdowns
   const [clients, setClients] = useState([]);
@@ -51,11 +69,11 @@ const CreateInvoice = () => {
 
         setClients(clientsRes.data);
         setProducts(productsRes.data);
-        
+
         // Auto-generate next Invoice Number
         const nextNum = invRes.data.invoiceNo ? parseInt(invRes.data.invoiceNo) + 1 : 1;
         setInvoiceData(prev => ({ ...prev, invoiceNo: String(nextNum).padStart(5, "0") }));
-        
+
       } catch (err) {
         console.error("Error fetching data:", err);
         setError("Failed to load initial data.");
@@ -68,7 +86,7 @@ const CreateInvoice = () => {
   const handleProductSelect = (e) => {
     const prodId = e.target.value;
     const product = products.find(p => p._id === prodId);
-    
+
     if (product) {
       setCurrentItem({
         productId: product._id,
@@ -78,7 +96,7 @@ const CreateInvoice = () => {
         amount: product.price * 1
       });
     } else {
-        setCurrentItem({ productId: "", name: "", quantity: 1, rate: 0, amount: 0 });
+      setCurrentItem({ productId: "", name: "", quantity: 1, rate: 0, amount: 0 });
     }
   };
 
@@ -98,11 +116,11 @@ const CreateInvoice = () => {
       setError("Please select a product and valid quantity.");
       return;
     }
-    
+
     const newItems = [...items, currentItem];
     setItems(newItems);
     calculateTotals(newItems);
-    
+
     // Reset Current Item
     setCurrentItem({ productId: "", name: "", quantity: 1, rate: 0, amount: 0 });
     setError("");
@@ -155,7 +173,7 @@ const CreateInvoice = () => {
       setItems([]);
       setTotals({ subtotal: 0, tax: 0, totalAmount: 0 });
       setInvoiceData(prev => ({ ...prev, clientId: "" }));
-      
+
       // Refresh invoice number for next one
       setTimeout(() => window.location.reload(), 1500);
 
@@ -169,7 +187,7 @@ const CreateInvoice = () => {
   return (
     <Container className="py-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2><FaCalculator className="me-2"/> New Invoice</h2>
+        <h2><FaCalculator className="me-2" /> New Invoice</h2>
         <Button color="secondary" onClick={() => window.history.back()}>Back</Button>
       </div>
 
@@ -188,15 +206,15 @@ const CreateInvoice = () => {
               </FormGroup>
               <FormGroup>
                 <Label>Date</Label>
-                <Input 
-                  type="date" 
-                  value={invoiceData.date} 
-                  onChange={(e) => setInvoiceData({...invoiceData, date: e.target.value})} 
+                <Input
+                  type="date"
+                  value={invoiceData.date}
+                  onChange={(e) => setInvoiceData({ ...invoiceData, date: e.target.value })}
                 />
               </FormGroup>
               <FormGroup>
                 <Label>Client</Label>
-                <Input 
+                {/* <Input 
                   type="select" 
                   value={invoiceData.clientId}
                   onChange={(e) => setInvoiceData({...invoiceData, clientId: e.target.value})}
@@ -207,7 +225,21 @@ const CreateInvoice = () => {
                       {client.firstName} {client.lastName}
                     </option>
                   ))}
-                </Input>
+                </Input> */}
+                <Autocomplete
+                  options={clients}
+                  getOptionLabel={(option) => `${option.firstName} ${option.lastName} (${option.email})`}
+                  onChange={(event, newValue) => {
+                    if (newValue) {
+                      setInvoiceData({
+                        ...invoiceData,
+                        clientId: newValue._id
+                      });
+                    }
+                  }}
+                  
+                  renderInput={(params) => <TextField {...params} label="Select Client" variant="outlined" />}
+                />
               </FormGroup>
             </CardBody>
           </Card>
@@ -221,32 +253,48 @@ const CreateInvoice = () => {
               <Row className="g-2 align-items-end mb-3">
                 <Col md={5}>
                   <Label>Product</Label>
-                  <Input 
-                    type="select" 
-                    value={currentItem.productId} 
+                  {/* <Input
+                    type="select"
+                    value={currentItem.productId}
                     onChange={handleProductSelect}
                   >
                     <option value="">Select Product</option>
                     {products.map(p => (
                       <option key={p._id} value={p._id}>{p.name} (${p.price})</option>
                     ))}
-                  </Input>
+                  </Input> */}
+                  <Autocomplete
+                  options={products}
+                  getOptionLabel={(option) => `${option.name} ($${option.price})`}
+                  onChange={(event, newValue) => {
+                    if (newValue) {
+                      setCurrentItem({
+                        productId: newValue._id,
+                        name: newValue.name,
+                        quantity: 1,
+                        rate: newValue.price,
+                        amount: newValue.price
+                      });
+                    }
+                  }}
+                  renderInput={(params) => <TextField {...params} label="Select Product" variant="outlined" />}
+                />
                 </Col>
                 <Col md={3}>
                   <Label>Quantity</Label>
-                  <Input 
-                    type="number" 
-                    min="1" 
-                    value={currentItem.quantity} 
-                    onChange={handleQuantityChange} 
+                  <Input
+                    type="number"
+                    min="1"
+                    value={currentItem.quantity}
+                    onChange={handleQuantityChange}
                   />
                 </Col>
                 <Col md={2}>
-                   <Label>Amount</Label>
-                   <Input value={currentItem.amount.toFixed(2)} disabled />
+                  <Label>Amount</Label>
+                  <Input value={currentItem.amount.toFixed(2)} disabled />
                 </Col>
                 <Col md={2}>
-                  <Button color="primary" block onClick={handleAddItem}><FaPlus/></Button>
+                  <Button color="primary" block onClick={handleAddItem}><FaPlus /></Button>
                 </Col>
               </Row>
 
@@ -269,7 +317,7 @@ const CreateInvoice = () => {
                       <td>${item.amount.toFixed(2)}</td>
                       <td>
                         <Button size="sm" color="danger" outline onClick={() => handleRemoveItem(idx)}>
-                          <FaTrash size={12}/>
+                          <FaTrash size={12} />
                         </Button>
                       </td>
                     </tr>
@@ -299,10 +347,10 @@ const CreateInvoice = () => {
               </div>
 
               <div className="text-end mt-4">
-                <Button 
-                  color="success" 
-                  size="lg" 
-                  onClick={handleSubmit} 
+                <Button
+                  color="success"
+                  size="lg"
+                  onClick={handleSubmit}
                   disabled={loading}
                 >
                   {loading ? "Generating..." : "Create Invoice"}
