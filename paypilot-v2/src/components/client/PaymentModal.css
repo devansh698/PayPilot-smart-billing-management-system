@@ -1,0 +1,73 @@
+/* PaymentModal.css */
+.payment-modal .modal-content {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.payment-modal .modal-header {
+    border-bottom: 1px solid #f1f5f9;
+    padding: 1.5rem;
+}
+
+.payment-modal .modal-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.payment-modal .modal-body {
+    padding: 1.5rem;
+}
+
+.input-icon {
+    margin-right: 0.5rem;
+    color: #64748b;
+}
+
+.payment-methods {
+    margin-top: 0.5rem;
+}
+
+.method-option {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.method-option:hover {
+    border-color: #cbd5e1;
+}
+
+.method-option.selected {
+    border-color: #3b82f6;
+    background-color: #f0f7ff;
+}
+
+.method-icon {
+    margin-right: 0.75rem;
+    font-size: 1.25rem;
+    color: #64748b;
+}
+
+.method-option.selected .method-icon {
+    color: #3b82f6;
+}
+
+.check-icon {
+    margin-left: auto;
+    color: #3b82f6;
+}
+
+.submit-btn {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 8px;
+    font-weight: 500;
+    margin-top: 1.5rem;
+}

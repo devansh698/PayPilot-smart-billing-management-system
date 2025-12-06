@@ -1,0 +1,39 @@
+.navbar {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    padding: 0.5rem 1rem;
+    width: 100%;
+}
+
+.logo-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: white;
+}
+
+.logo {
+    height: 110px;
+    width: auto;
+    margin-right: 70%;
+}
+
+.nav-link {
+    text-decoration: none;
+    color: white;
+    margin: 0 0.5rem;
+}
+
+.nav-link:hover {
+    color: #f1f1f1;
+}
+
+.menu-item {
+    padding: 0.5rem 1rem;
+    text-align: left;
+}
+
+.menu-item:hover {
+    background: #0056b3;
+    color: white;
+}

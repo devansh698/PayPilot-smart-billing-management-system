@@ -1,0 +1,134 @@
+/* ClientOrders.css */
+.client-orders {
+    padding: 2rem;
+    background-color: #f8fafc;
+    min-height: 100vh;
+}
+
+.page-header {
+    margin-bottom: 2rem;
+    align-items: center;
+}
+
+.page-header h1 {
+    font-size: 2rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 0.5rem;
+}
+
+.page-header .subtitle {
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.create-order-btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-icon {
+    margin-right: 0.5rem;
+}
+
+.orders-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    padding: 1.5rem;
+}
+
+.orders-table {
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.orders-table th {
+    background-color: #f8fafc;
+    color: #64748b;
+    font-weight: 500;
+    padding: 1rem;
+    border-top: none;
+}
+
+.orders-table td {
+    padding: 1rem;
+    vertical-align: middle;
+    border-top: 1px solid #f1f5f9;
+}
+
+.status-badge {
+    padding: 0.5rem 0.75rem;
+    border-radius: 20px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+}
+
+.status-icon {
+    margin-right: 0.25rem;
+}
+
+.no-orders {
+    padding: 3rem;
+    text-align: center;
+}
+
+.empty-icon {
+    font-size: 3rem;
+    color: #cbd5e1;
+    margin-bottom: 1rem;
+}
+
+.no-orders p {
+    color: #64748b;
+    margin-bottom: 1.5rem;
+}
+
+.loading-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    padding: 3rem;
+    text-align: center;
+    background-color: white;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #e2e8f0;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.alert-error {
+    border-radius: 8px;
+}
+
+.success-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.success-animation {
+    width: 300px;
+    height: 300px;
+}

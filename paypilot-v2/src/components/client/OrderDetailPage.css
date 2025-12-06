@@ -1,0 +1,147 @@
+/* OrderDetailPage.css */
+.order-detail {
+    padding: 2rem;
+    background-color: #f8fafc;
+    min-height: 100vh;
+}
+
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    color: #64748b;
+    margin-bottom: 1rem;
+    padding: 0;
+}
+
+.back-btn:hover {
+    color: #3b82f6;
+    text-decoration: none;
+}
+
+.page-header {
+    margin-bottom: 2rem;
+    align-items: center;
+}
+
+.page-header h1 {
+    font-size: 2rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 0.5rem;
+}
+
+.page-header .subtitle {
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.status-badge {
+    padding: 0.75rem 1rem;
+    border-radius: 20px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+}
+
+.order-card, .info-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+}
+
+.card-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.title-icon {
+    margin-right: 0.75rem;
+    color: #64748b;
+}
+
+.items-table {
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.items-table th {
+    background-color: #f8fafc;
+    color: #64748b;
+    font-weight: 500;
+    padding: 1rem;
+    border-top: none;
+}
+
+.items-table td {
+    padding: 1rem;
+    vertical-align: middle;
+    border-top: 1px solid #f1f5f9;
+}
+
+.item-description {
+    color: #64748b;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    margin-bottom: 0;
+}
+
+.items-table tfoot td {
+    font-weight: 500;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #f1f5f9;
+}
+
+.total-row td {
+    font-size: 1.1rem;
+    color: #1e293b;
+    border-top: 2px solid #e2e8f0;
+}
+
+.info-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.info-section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.info-section h6 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 0.75rem;
+}
+
+.order-detail-loading, .order-detail-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #f8fafc;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #e2e8f0;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

@@ -1,0 +1,215 @@
+/* ClientDashboard.css */
+.client-dashboard {
+    padding: 2rem;
+    background-color: #f8fafc;
+    min-height: 100vh;
+  }
+  
+  .dashboard-header {
+    margin-bottom: 2rem;
+  }
+  
+  .dashboard-header h1 {
+    font-size: 2rem;
+    font-weight: 600;
+    color: #1e293b;
+  }
+  
+  .dashboard-header h1 span {
+    color: #3b82f6;
+  }
+  
+  .dashboard-header .subtitle {
+    color: #64748b;
+    font-size: 0.9rem;
+  }
+  
+  .summary-cards {
+    margin-bottom: 2rem;
+  }
+  
+  .summary-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    height: 100%;
+  }
+  
+  .summary-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+  }
+  
+  .card-icon.user {
+    background-color: #e0f2fe;
+    color: #0369a1;
+  }
+  
+  .card-icon.order {
+    background-color: #ede9fe;
+    color: #7c3aed;
+  }
+  
+  .card-icon.payment {
+    background-color: #dcfce7;
+    color: #16a34a;
+  }
+  
+  .card-icon.purchase {
+    background-color: #fee2e2;
+    color: #dc2626;
+  }
+  
+  .summary-card .card-title {
+    font-size: 0.9rem;
+    color: #64748b;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+  }
+  
+  .summary-card .card-text {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 1rem;
+  }
+  
+  .activity-card, .notifications-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+  }
+  
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  
+  .card-header .card-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+  }
+  
+  .card-header .view-all {
+    color: #3b82f6;
+    font-size: 0.9rem;
+    text-decoration: none;
+  }
+  
+  .card-header .view-all:hover {
+    text-decoration: underline;
+  }
+  
+  .activity-table {
+    width: 100%;
+  }
+  
+  .activity-table th {
+    background-color: #f8fafc;
+    color: #64748b;
+    font-weight: 500;
+    padding: 0.75rem 1rem;
+  }
+  
+  .activity-table td {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #f1f5f9;
+    vertical-align: middle;
+  }
+  
+  .notifications-card .card-header .badge {
+    background-color: #3b82f6;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+  }
+  
+  .notifications-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .notifications-list li {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  
+  .notifications-list li:last-child {
+    border-bottom: none;
+  }
+  
+  .notifications-list li.unread {
+    background-color: #f8fafc;
+  }
+  
+  .notification-content {
+    flex: 1;
+  }
+  
+  .notification-content p {
+    margin: 0;
+    color: #1e293b;
+  }
+  
+  .notification-content small {
+    color: #64748b;
+    font-size: 0.75rem;
+  }
+  
+  .unread-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #3b82f6;
+    border-radius: 50%;
+    margin-left: 1rem;
+    margin-top: 0.25rem;
+  }
+  
+  .loading-overlay {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #f8fafc;
+  }
+  
+  .spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #e2e8f0;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }

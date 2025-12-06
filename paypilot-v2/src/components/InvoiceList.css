@@ -1,0 +1,26 @@
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.page-title {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.table {
+    margin-top: 2rem;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.table-light {
+    background-color: #f8f9fa;
+}
+
+.table-light th {
+    background-color: #e9ecef;
+}
