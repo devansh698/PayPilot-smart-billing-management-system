@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Container, Row, Col, Card, CardBody, CardTitle } from 'reactstrap';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import Overview from './Overview';
-import LoadingPage from './LoadingPage';
-import { Select, MenuItem, FormControl, InputLabel } from '@mui/material';
-const Dashboard = () => {
-    const [overviewData, setOverviewData] = useState({});
-    const [loading, setLoading] = useState(true);
-    const [timeRange, setTimeRange] = useState('week');
+import api from '../api'; // FIX: Use secure api
+import { Box, Grid, Card, CardContent, Typography, CircularProgress, Alert } from '@mui/material';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell, Legend 
+} from 'recharts';
+import { TrendingUp, AttachMoney, Warning } from '@mui/icons-material';
 
-    // Mock data for charts (Replace with API data if available)
+// You will need to migrate your 'Overview' component to MUI as well, 
+// or simpler: render summary cards directly here.
+const Dashboard = () => {
+    const [loading, setLoading] = useState(true);
+    const [overviewData, setOverviewData] = useState(null);
+
     const chartData = [
         { name: 'Mon', sales: 4000 },
         { name: 'Tue', sales: 3000 },
@@ -18,7 +20,6 @@ const Dashboard = () => {
         { name: 'Thu', sales: 2780 },
         { name: 'Fri', sales: 1890 },
         { name: 'Sat', sales: 2390 },
-        { name: 'Sun', sales: 3490 },
     ];
     
     const pieData = [
@@ -26,87 +27,98 @@ const Dashboard = () => {
         { name: 'Pending', value: 300 },
         { name: 'Overdue', value: 100 },
     ];
-    const COLORS = ['#0088FE', '#FFBB28', '#FF8042'];
+    const COLORS = ['#00C49F', '#FFBB28', '#FF8042'];
 
     useEffect(() => {
-        axios.get('/api/overview/')
-            .then(response => {
-                setOverviewData(response.data);
+        api.get('/overview/')
+            .then(res => {
+                setOverviewData(res.data);
                 setLoading(false);
             })
-            .catch(err => {
-                console.error(err);
-                setLoading(false);
-            });
+            .catch(err => setLoading(false));
     }, []);
 
-    if (loading) return <LoadingPage />;
+    const StatCard = ({ title, value, icon, color }) => (
+        <Card sx={{ height: '100%', borderLeft: `5px solid ${color}` }}>
+            <CardContent>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Box>
+                        <Typography color="textSecondary" variant="subtitle2" textTransform="uppercase">
+                            {title}
+                        </Typography>
+                        <Typography variant="h4" fontWeight="bold">
+                            {value}
+                        </Typography>
+                    </Box>
+                    <Box sx={{ color: color, p: 1, borderRadius: '50%', bgcolor: `${color}22` }}>
+                        {icon}
+                    </Box>
+                </Box>
+            </CardContent>
+        </Card>
+    );
+
+    if (loading) return <Box display="flex" justifyContent="center" mt={5}><CircularProgress /></Box>;
 
     return (
-        
-        <Container fluid>
-            <h2 className="mb-4">Dashboard Overview</h2>
-            
-            {/* Summary Cards */}
-            <Row className="mb-4">
-                <Col>
-                    <Overview data={overviewData} />
-                </Col>
-            </Row>
+        <Box sx={{ p: 3 }}>
+            <Typography variant="h4" fontWeight="bold" mb={3}>
+                Dashboard Overview
+            </Typography>
 
-            {/* Analytics Charts */}
-            <Row>
-                <Col lg={8} className="mb-4">
-                    <Card className="shadow-sm h-100">
-                        <CardBody>
-                            <CardTitle tag="h5">Weekly Sales Analytics</CardTitle>
-                            <div style={{ width: '100%', height: 300 }}>
-                                <ResponsiveContainer>
-                                    <BarChart data={chartData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="name" />
-                                        <YAxis />
-                                        <Tooltip />
-                                        <Bar dataKey="sales" fill="#8884d8" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </CardBody>
+            {/* Summary Cards */}
+            <Grid container spacing={3} mb={4}>
+                <Grid item xs={12} md={4}>
+                    <StatCard title="Total Sales" value="$24,000" icon={<AttachMoney />} color="#1976d2" />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                    <StatCard title="Pending Invoices" value="12" icon={<Warning />} color="#ed6c02" />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                    <StatCard title="Weekly Growth" value="+15%" icon={<TrendingUp />} color="#2e7d32" />
+                </Grid>
+            </Grid>
+
+            {/* Charts */}
+            <Grid container spacing={3}>
+                <Grid item xs={12} md={8}>
+                    <Card sx={{ p: 2, height: 400 }}>
+                        <Typography variant="h6" mb={2}>Weekly Sales Analytics</Typography>
+                        <ResponsiveContainer width="100%" height="90%">
+                            <BarChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="name" />
+                                <YAxis />
+                                <Tooltip />
+                                <Bar dataKey="sales" fill="#1976d2" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
                     </Card>
-                </Col>
-                <Col lg={4} className="mb-4">
-                    <Card className="shadow-sm h-100">
-                        <CardBody>
-                            <CardTitle tag="h5">Payment Status</CardTitle>
-                            <div style={{ width: '100%', height: 300 }}>
-                                <ResponsiveContainer>
-                                    <PieChart>
-                                        <Pie
-                                            data={pieData}
-                                            innerRadius={60}
-                                            outerRadius={80}
-                                            fill="#8884d8"
-                                            paddingAngle={5}
-                                            dataKey="value"
-                                        >
-                                            {pieData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </div>
-                            <div className="text-center mt-2">
-                                <span className="badge bg-primary me-2">Paid</span>
-                                <span className="badge bg-warning me-2 text-dark">Pending</span>
-                                <span className="badge bg-danger">Overdue</span>
-                            </div>
-                        </CardBody>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                    <Card sx={{ p: 2, height: 400 }}>
+                        <Typography variant="h6" mb={2}>Payment Status</Typography>
+                        <ResponsiveContainer width="100%" height="90%">
+                            <PieChart>
+                                <Pie
+                                    data={pieData}
+                                    innerRadius={60}
+                                    outerRadius={80}
+                                    paddingAngle={5}
+                                    dataKey="value"
+                                >
+                                    {pieData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend verticalAlign="bottom" height={36}/>
+                            </PieChart>
+                        </ResponsiveContainer>
                     </Card>
-                </Col>
-            </Row>
-        </Container>
+                </Grid>
+            </Grid>
+        </Box>
     );
 };
 

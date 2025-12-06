@@ -1,367 +1,291 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import {
-  Container, Row, Col, Card, CardBody, Form, FormGroup,
-  Label, Input, Button, Table, Alert
-} from "reactstrap";
-import { FaTrash, FaPlus, FaCalculator } from "react-icons/fa";
-// Add inside your CreateInvoice or InvoiceDetails component
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import { Autocomplete, TextField } from '@mui/material';
-
+import api from "../api"; // FIX: Using secure API instance
+import { 
+  Box, Grid, Card, CardContent, Typography, TextField, Button, 
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
+  Paper, MenuItem, IconButton, Divider, InputAdornment 
+} from "@mui/material";
+import { Add, Delete, Save, ReceiptLong, ArrowBack } from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 const CreateInvoice = () => {
+  const navigate = useNavigate();
+  
+  // 1. Initial State
   const [invoiceData, setInvoiceData] = useState({
-    invoiceNo: "",
+    invoiceNo: "Loading...",
     clientId: "",
-    clientName: "", // For display/logic if needed
-    date: new Date().toISOString().split('T')[0]
+    // REQUESTED FEATURE: Date is fixed to today
+    date: new Date().toISOString().split('T')[0], 
+    notes: "",
+    terms: "Payment due within 15 days. Thank you for your business.",
   });
-  const handleDownloadPDF = async () => {
-    const element = document.getElementById('invoice-preview'); // Add this ID to your invoice card
-    const canvas = await html2canvas(element);
-    const data = canvas.toDataURL('image/png');
 
-    const pdf = new jsPDF();
-    const imgProperties = pdf.getImageProperties(data);
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = (imgProperties.height * pdfWidth) / imgProperties.width;
-
-    pdf.addImage(data, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    pdf.save(`invoice_${invoiceData.invoiceNo}.pdf`);
-  };
-
-  // Lists for Dropdowns
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
-
-  // Item Line State
+  
+  // Line Items
   const [items, setItems] = useState([]);
   const [currentItem, setCurrentItem] = useState({
-    productId: "",
-    name: "",
-    quantity: 1,
-    rate: 0,
-    amount: 0
+    productId: "", name: "", quantity: 1, rate: 0, amount: 0
   });
 
-  // Totals
+  // Financials
   const [totals, setTotals] = useState({
-    subtotal: 0,
-    tax: 0,
-    totalAmount: 0
+    subtotal: 0, tax: 0, discount: 0, totalAmount: 0
   });
+  const [taxRate, setTaxRate] = useState(18); // Editable Tax Rate
+  const [discountRate, setDiscountRate] = useState(0); // New Feature: Discount
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  // 1. Fetch Initial Data (Clients, Products, Last Invoice #)
+  // 2. Load Data
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [clientsRes, productsRes, invRes] = await Promise.all([
-          axios.get("/api/client/"),
-          axios.get("/api/product/"),
-          axios.get("/api/invoices/lastinvno")
+          api.get("/client/"),
+          api.get("/product/"),
+          api.get("/invoices/lastinvno")
         ]);
-
         setClients(clientsRes.data);
         setProducts(productsRes.data);
-
-        // Auto-generate next Invoice Number
         const nextNum = invRes.data.invoiceNo ? parseInt(invRes.data.invoiceNo) + 1 : 1;
         setInvoiceData(prev => ({ ...prev, invoiceNo: String(nextNum).padStart(5, "0") }));
-
       } catch (err) {
-        console.error("Error fetching data:", err);
-        setError("Failed to load initial data.");
+        toast.error("Failed to load initial data");
       }
     };
     fetchData();
   }, []);
 
-  // 2. Handle Product Selection
+  // 3. Logic Handling
   const handleProductSelect = (e) => {
-    const prodId = e.target.value;
-    const product = products.find(p => p._id === prodId);
-
+    const product = products.find(p => p._id === e.target.value);
     if (product) {
       setCurrentItem({
         productId: product._id,
         name: product.name,
         quantity: 1,
         rate: product.price,
-        amount: product.price * 1
+        amount: product.price
       });
-    } else {
-      setCurrentItem({ productId: "", name: "", quantity: 1, rate: 0, amount: 0 });
     }
   };
 
-  // 3. Handle Quantity Change
-  const handleQuantityChange = (e) => {
-    const qty = parseFloat(e.target.value) || 0;
-    setCurrentItem(prev => ({
-      ...prev,
-      quantity: qty,
-      amount: qty * prev.rate
-    }));
-  };
-
-  // 4. Add Item to List
-  const handleAddItem = () => {
-    if (!currentItem.productId || currentItem.quantity <= 0) {
-      setError("Please select a product and valid quantity.");
-      return;
-    }
-
-    const newItems = [...items, currentItem];
-    setItems(newItems);
-    calculateTotals(newItems);
-
-    // Reset Current Item
+  const addItem = () => {
+    if (!currentItem.productId) return toast.warning("Select a product first");
+    setItems([...items, currentItem]);
     setCurrentItem({ productId: "", name: "", quantity: 1, rate: 0, amount: 0 });
-    setError("");
   };
 
-  // 5. Remove Item
-  const handleRemoveItem = (index) => {
-    const newItems = items.filter((_, i) => i !== index);
-    setItems(newItems);
-    calculateTotals(newItems);
+  const removeItem = (index) => {
+    setItems(items.filter((_, i) => i !== index));
   };
 
-  // 6. Calculate Totals
-  const calculateTotals = (currentItems) => {
-    const subtotal = currentItems.reduce((acc, item) => acc + item.amount, 0);
-    const tax = subtotal * 0.18; // 18% Tax
+  // Recalculate totals whenever items, tax, or discount changes
+  useEffect(() => {
+    const sub = items.reduce((acc, item) => acc + item.amount, 0);
+    const discAmount = (sub * discountRate) / 100;
+    const taxableAmount = sub - discAmount;
+    const taxAmount = (taxableAmount * taxRate) / 100;
+    
     setTotals({
-      subtotal: parseFloat(subtotal.toFixed(2)),
-      tax: parseFloat(tax.toFixed(2)),
-      totalAmount: parseFloat((subtotal + tax).toFixed(2))
+      subtotal: sub.toFixed(2),
+      discount: discAmount.toFixed(2),
+      tax: taxAmount.toFixed(2),
+      totalAmount: (taxableAmount + taxAmount).toFixed(2)
     });
-  };
+  }, [items, taxRate, discountRate]);
 
-  // 7. Submit Invoice
+  // 4. Submit
   const handleSubmit = async () => {
-    if (!invoiceData.clientId || items.length === 0) {
-      setError("Please select a client and add at least one item.");
-      return;
-    }
+    if (!invoiceData.clientId || items.length === 0) return toast.error("Please fill required fields");
 
-    setLoading(true);
+    const payload = {
+      ...invoiceData,
+      products: items.map(i => ({ product: i.productId, quantity: i.quantity, rate: i.rate, amount: i.amount })),
+      subtotal: totals.subtotal,
+      tax: totals.tax,
+      totalAmount: totals.totalAmount,
+      // Sending custom fields to backend (ensure your Invoice Model has these fields)
+      notes: invoiceData.notes,
+      terms: invoiceData.terms
+    };
+
     try {
-      const payload = {
-        invoiceNo: invoiceData.invoiceNo,
-        client: invoiceData.clientId,
-        date: invoiceData.date,
-        products: items.map(item => ({
-          product: item.productId,
-          quantity: item.quantity,
-          rate: item.rate,
-          amount: item.amount
-        })),
-        subtotal: totals.subtotal,
-        tax: totals.tax,
-        totalAmount: totals.totalAmount
-      };
-
-      await axios.post("/api/invoices", payload);
-      setSuccess("Invoice created successfully!");
-      setItems([]);
-      setTotals({ subtotal: 0, tax: 0, totalAmount: 0 });
-      setInvoiceData(prev => ({ ...prev, clientId: "" }));
-
-      // Refresh invoice number for next one
-      setTimeout(() => window.location.reload(), 1500);
-
+      await api.post("/invoices", payload);
+      toast.success("Invoice Created!");
+      navigate("/invoicelist");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to create invoice.");
-    } finally {
-      setLoading(false);
+      toast.error(err.response?.data?.message || "Creation failed");
     }
   };
 
   return (
-    <Container className="py-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2><FaCalculator className="me-2" /> New Invoice</h2>
-        <Button color="secondary" onClick={() => window.history.back()}>Back</Button>
-      </div>
+    <Box sx={{ p: 3 }}>
+      {/* Header */}
+      <Box display="flex" justifyContent="space-between" mb={3}>
+        <Typography variant="h4" fontWeight="bold" color="text.primary">
+          <ReceiptLong sx={{ verticalAlign: 'middle', mr: 1, mb: 0.5 }} />
+          New Invoice
+        </Typography>
+        <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)}>Back</Button>
+      </Box>
 
-      {error && <Alert color="danger">{error}</Alert>}
-      {success && <Alert color="success">{success}</Alert>}
-
-      <Row>
-        {/* Left Col: Client & Invoice Info */}
-        <Col md={4}>
-          <Card className="mb-4 shadow-sm">
-            <CardBody>
-              <h5>Invoice Details</h5>
-              <FormGroup>
-                <Label>Invoice Number</Label>
-                <Input value={invoiceData.invoiceNo} disabled className="bg-light" />
-              </FormGroup>
-              <FormGroup>
-                <Label>Date</Label>
-                <Input
-                  type="date"
-                  value={invoiceData.date}
-                  onChange={(e) => setInvoiceData({ ...invoiceData, date: e.target.value })}
+      <Grid container spacing={3}>
+        {/* Left Col: Invoice Info */}
+        <Grid item xs={12} md={4}>
+          <Card sx={{ p: 2, height: '100%' }}>
+            <Typography variant="h6" gutterBottom>Info</Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField fullWidth label="Invoice #" value={invoiceData.invoiceNo} disabled variant="filled" />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField 
+                  fullWidth 
+                  label="Date" 
+                  value={invoiceData.date} 
+                  disabled // REQUESTED FEATURE: LOCKED DATE
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">📅</InputAdornment>,
+                  }}
                 />
-              </FormGroup>
-              <FormGroup>
-                <Label>Client</Label>
-                {/* <Input 
-                  type="select" 
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Select Client"
                   value={invoiceData.clientId}
-                  onChange={(e) => setInvoiceData({...invoiceData, clientId: e.target.value})}
+                  onChange={(e) => setInvoiceData({ ...invoiceData, clientId: e.target.value })}
                 >
-                  <option value="">-- Select Client --</option>
-                  {clients.map(client => (
-                    <option key={client._id} value={client._id}>
-                      {client.firstName} {client.lastName}
-                    </option>
+                  {clients.map(c => (
+                    <MenuItem key={c._id} value={c._id}>{c.firstName} {c.lastName}</MenuItem>
                   ))}
-                </Input> */}
-                <Autocomplete
-                  options={clients}
-                  getOptionLabel={(option) => `${option.firstName} ${option.lastName} (${option.email})`}
-                  onChange={(event, newValue) => {
-                    if (newValue) {
-                      setInvoiceData({
-                        ...invoiceData,
-                        clientId: newValue._id
-                      });
-                    }
-                  }}
-                  
-                  renderInput={(params) => <TextField {...params} label="Select Client" variant="outlined" />}
-                />
-              </FormGroup>
-            </CardBody>
+                </TextField>
+              </Grid>
+            </Grid>
           </Card>
-        </Col>
+        </Grid>
 
-        {/* Right Col: Product Adder & List */}
-        <Col md={8}>
-          <Card className="shadow-sm">
-            <CardBody>
-              <h5>Add Products</h5>
-              <Row className="g-2 align-items-end mb-3">
-                <Col md={5}>
-                  <Label>Product</Label>
-                  {/* <Input
-                    type="select"
-                    value={currentItem.productId}
-                    onChange={handleProductSelect}
-                  >
-                    <option value="">Select Product</option>
-                    {products.map(p => (
-                      <option key={p._id} value={p._id}>{p.name} (${p.price})</option>
-                    ))}
-                  </Input> */}
-                  <Autocomplete
-                  options={products}
-                  getOptionLabel={(option) => `${option.name} ($${option.price})`}
-                  onChange={(event, newValue) => {
-                    if (newValue) {
-                      setCurrentItem({
-                        productId: newValue._id,
-                        name: newValue.name,
-                        quantity: 1,
-                        rate: newValue.price,
-                        amount: newValue.price
-                      });
-                    }
-                  }}
-                  renderInput={(params) => <TextField {...params} label="Select Product" variant="outlined" />}
-                />
-                </Col>
-                <Col md={3}>
-                  <Label>Quantity</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={currentItem.quantity}
-                    onChange={handleQuantityChange}
-                  />
-                </Col>
-                <Col md={2}>
-                  <Label>Amount</Label>
-                  <Input value={currentItem.amount.toFixed(2)} disabled />
-                </Col>
-                <Col md={2}>
-                  <Button color="primary" block onClick={handleAddItem}><FaPlus /></Button>
-                </Col>
-              </Row>
+        {/* Right Col: Items & Customization */}
+        <Grid item xs={12} md={8}>
+          <Card sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>Items</Typography>
+            
+            {/* Item Adder */}
+            <Box display="flex" gap={2} mb={2} alignItems="center">
+              <TextField 
+                select label="Product" size="small" sx={{ flexGrow: 1 }}
+                value={currentItem.productId} 
+                onChange={handleProductSelect}
+              >
+                {products.map(p => <MenuItem key={p._id} value={p._id}>{p.name} (${p.price})</MenuItem>)}
+              </TextField>
+              <TextField 
+                label="Qty" type="number" size="small" sx={{ width: 80 }}
+                value={currentItem.quantity}
+                onChange={(e) => {
+                  const q = Number(e.target.value);
+                  setCurrentItem(prev => ({ ...prev, quantity: q, amount: q * prev.rate }));
+                }}
+              />
+              <Typography sx={{ width: 80, textAlign: 'right' }}>${currentItem.amount}</Typography>
+              <Button variant="contained" onClick={addItem}><Add /></Button>
+            </Box>
 
-              <Table striped responsive className="mt-3">
-                <thead className="table-light">
-                  <tr>
-                    <th>Product</th>
-                    <th>Qty</th>
-                    <th>Rate</th>
-                    <th>Amount</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item, idx) => (
-                    <tr key={idx}>
-                      <td>{item.name}</td>
-                      <td>{item.quantity}</td>
-                      <td>${item.rate}</td>
-                      <td>${item.amount.toFixed(2)}</td>
-                      <td>
-                        <Button size="sm" color="danger" outline onClick={() => handleRemoveItem(idx)}>
-                          <FaTrash size={12} />
-                        </Button>
-                      </td>
-                    </tr>
+            {/* Items Table */}
+            <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
+              <Table size="small">
+                <TableHead sx={{ bgcolor: 'action.hover' }}>
+                  <TableRow>
+                    <TableCell>Product</TableCell>
+                    <TableCell align="center">Qty</TableCell>
+                    <TableCell align="right">Rate</TableCell>
+                    <TableCell align="right">Amount</TableCell>
+                    <TableCell align="center">Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {items.map((item, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{item.name}</TableCell>
+                      <TableCell align="center">{item.quantity}</TableCell>
+                      <TableCell align="right">${item.rate}</TableCell>
+                      <TableCell align="right">${item.amount}</TableCell>
+                      <TableCell align="center">
+                        <IconButton size="small" color="error" onClick={() => removeItem(index)}><Delete /></IconButton>
+                      </TableCell>
+                    </TableRow>
                   ))}
                   {items.length === 0 && (
-                    <tr><td colSpan="5" className="text-center text-muted">No items added yet.</td></tr>
+                    <TableRow><TableCell colSpan={5} align="center">No items added</TableCell></TableRow>
                   )}
-                </tbody>
+                </TableBody>
               </Table>
+            </TableContainer>
 
-              {/* Totals Section */}
-              <div className="d-flex justify-content-end mt-4">
-                <div style={{ width: '250px' }}>
-                  <div className="d-flex justify-content-between mb-2">
-                    <span>Subtotal:</span>
-                    <strong>${totals.subtotal}</strong>
-                  </div>
-                  <div className="d-flex justify-content-between mb-2">
-                    <span>Tax (18%):</span>
-                    <strong>${totals.tax}</strong>
-                  </div>
-                  <div className="d-flex justify-content-between border-top pt-2">
-                    <h5>Total:</h5>
-                    <h5 className="text-primary">${totals.totalAmount}</h5>
-                  </div>
-                </div>
-              </div>
+            <Divider sx={{ my: 2 }} />
 
-              <div className="text-end mt-4">
-                <Button
-                  color="success"
-                  size="lg"
-                  onClick={handleSubmit}
-                  disabled={loading}
-                >
-                  {loading ? "Generating..." : "Create Invoice"}
-                </Button>
-              </div>
+            {/* Footer: Customization & Totals */}
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                 {/* REQUESTED FEATURE: CUSTOMIZE OPTION */}
+                <Typography variant="subtitle2" color="primary">Invoice Customization</Typography>
+                <TextField 
+                  fullWidth multiline rows={2} label="Notes" margin="dense" size="small"
+                  value={invoiceData.notes}
+                  onChange={e => setInvoiceData({...invoiceData, notes: e.target.value})}
+                />
+                <TextField 
+                  fullWidth multiline rows={2} label="Terms & Conditions" margin="dense" size="small"
+                  value={invoiceData.terms}
+                  onChange={e => setInvoiceData({...invoiceData, terms: e.target.value})}
+                />
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <Box display="flex" justifyContent="space-between" mb={1}>
+                  <Typography>Subtotal:</Typography>
+                  <Typography fontWeight="bold">${totals.subtotal}</Typography>
+                </Box>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                  <Typography>Discount (%):</Typography>
+                  <TextField 
+                    type="number" size="small" variant="standard" sx={{ width: 50, textAlign: 'right' }}
+                    value={discountRate} onChange={e => setDiscountRate(Number(e.target.value))}
+                  />
+                </Box>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                  <Typography>Tax Rate (%):</Typography>
+                  <TextField 
+                    type="number" size="small" variant="standard" sx={{ width: 50, textAlign: 'right' }}
+                    value={taxRate} onChange={e => setTaxRate(Number(e.target.value))}
+                  />
+                </Box>
+                <Divider />
+                <Box display="flex" justifyContent="space-between" mt={2}>
+                  <Typography variant="h5" color="primary">Total:</Typography>
+                  <Typography variant="h5" color="primary">${totals.totalAmount}</Typography>
+                </Box>
+              </Grid>
+            </Grid>
 
-            </CardBody>
+            <Box mt={3} textAlign="right">
+              <Button 
+                variant="contained" size="large" 
+                startIcon={<Save />} onClick={handleSubmit}
+                sx={{ px: 4, borderRadius: 2 }}
+              >
+                Generate Invoice
+              </Button>
+            </Box>
+
           </Card>
-        </Col>
-      </Row>
-    </Container>
+        </Grid>
+      </Grid>
+    </Box>
   );
 };
 
