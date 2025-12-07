@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Table, Button, Alert } from 'reactstrap';
+import api from '../api';
 
 const SaleReport = () => {
     const [salesReports, setSalesReports] = useState([]);
@@ -9,7 +10,7 @@ const SaleReport = () => {
     useEffect (() => {
         const fetchSalesReports = async () => {
             try {
-                const response = await fetch('/api/sales-reports/');
+                const response = await api.get('/sales-reports/');
                 const data = await response.json();
                 setSalesReports(data);
                 setLoading(false);

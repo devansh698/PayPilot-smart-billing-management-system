@@ -1,26 +1,36 @@
 import React, { useState } from "react";
-import axios from "axios";
-import { Container, Row, Col, Form, FormGroup, Label, Input, Button, Card, CardBody } from "reactstrap";
-import Lottie from "lottie-react";
-import animationData from "./animation/Animation - 1733831017954.json"; // Ensure path is correct
+import api from "../api";
+import { useNavigate, Link } from "react-router-dom";
 import { toast } from "react-toastify";
+import { Lock, Mail, ArrowRight, LayoutDashboard, KeyRound } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
+import { Button } from "./ui/Button";
+import { Input } from "./ui/Input";
+import { Label } from "./ui/Label";
 
 const LoginPage = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [otp, setOtp] = useState("");
-  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [step, setStep] = useState(1); // 1: Email/Pass, 2: OTP
+  const [credentials, setCredentials] = useState({ email: "", password: "", otp: "" });
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const handleChange = (e) => {
+    setCredentials({ ...credentials, [e.target.name]: e.target.value });
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await axios.post("/api/auth/login", { email, password });
-      setIsOtpSent(true);
-      toast.info("OTP sent to your email!");
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Login failed");
+      // Step 1: Verify Email/Password
+      const res = await api.post("/auth/login", { 
+        email: credentials.email, 
+        password: credentials.password 
+      });
+      toast.success(res.data.message);
+      setStep(2); // Move to OTP step
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Login failed");
     } finally {
       setLoading(false);
     }
@@ -30,103 +40,114 @@ const LoginPage = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const response = await axios.post("/api/auth/verify-otp-login", { email, otp });
-      localStorage.setItem("token", response.data.token);
-      toast.success("Login Successful!");
+      // Step 2: Verify OTP
+      const res = await api.post("/auth/verify-otp-login", {
+        email: credentials.email,
+        otp: credentials.otp
+      });
       
-      // Redirect to dashboard
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 1000);
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Invalid OTP");
+      localStorage.setItem("token", res.data.token);
+      toast.success("Login Successful!");
+      navigate("/dashboard");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Invalid OTP");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f0f2f5", display: "flex", alignItems: "center" }}>
-      <Container>
-        <Row className="align-items-center justify-content-center">
-          {/* Animation Column - Hidden on small screens */}
-          <Col md={6} className="d-none d-md-block text-center">
-            <Lottie animationData={animationData} style={{ maxWidth: "500px", margin: "0 auto" }} />
-          </Col>
-
-          {/* Login Form Column */}
-          <Col md={5}>
-            <Card className="shadow border-0 p-3">
-              <CardBody>
-                <div className="text-center mb-4">
-                  <h3 className="fw-bold text-primary">Welcome Back</h3>
-                  <p className="text-muted">Sign in to PayPilot Admin Portal</p>
-                </div>
-
-                {!isOtpSent ? (
-                  <Form onSubmit={handleLogin}>
-                    <FormGroup className="mb-3">
-                      <Label>Email Address</Label>
-                      <Input
-                        type="email"
-                        placeholder="Enter your email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        className="p-2"
-                      />
-                    </FormGroup>
-                    <FormGroup className="mb-3">
-                      <Label>Password</Label>
-                      <Input
-                        type="password"
-                        placeholder="Enter your password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        className="p-2"
-                      />
-                    </FormGroup>
-                    <Button color="primary" block size="lg" type="submit" disabled={loading}>
-                      {loading ? "Authenticating..." : "Login"}
-                    </Button>
-                  </Form>
-                ) : (
-                  <Form onSubmit={handleVerifyOtp}>
-                    <div className="text-center mb-3">
-                      <span className="badge bg-info">OTP Sent to {email}</span>
+    <div className="min-h-screen flex items-center justify-center bg-muted/20 p-4">
+      <Card className="w-full max-w-md shadow-lg border-border">
+        <CardHeader className="text-center space-y-2">
+            <div className="mx-auto w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground mb-2">
+                <LayoutDashboard size={24} />
+            </div>
+            <CardTitle className="text-2xl font-bold">
+                {step === 1 ? "Welcome Back" : "Verify OTP"}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+                {step === 1 ? "Sign in to your PayPilot account" : `Enter the code sent to ${credentials.email}`}
+            </p>
+        </CardHeader>
+        <CardContent>
+            {step === 1 ? (
+                <form onSubmit={handleLogin} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <div className="relative">
+                            <Mail className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
+                            <Input
+                                id="email" name="email" type="email"
+                                className="pl-9"
+                                placeholder="name@company.com"
+                                value={credentials.email} onChange={handleChange}
+                                required
+                            />
+                        </div>
                     </div>
-                    <FormGroup className="mb-3">
-                      <Label>One-Time Password (OTP)</Label>
-                      <Input
-                        type="text"
-                        placeholder="Enter 6-digit OTP"
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value)}
-                        required
-                        className="text-center p-2"
-                        style={{ letterSpacing: "2px", fontSize: "1.2rem" }}
-                      />
-                    </FormGroup>
-                    <Button color="success" block size="lg" type="submit" disabled={loading}>
-                      {loading ? "Verifying..." : "Verify & Enter"}
-                    </Button>
-                    <div className="text-center mt-3">
-                        <small className="text-muted cursor-pointer" onClick={() => setIsOtpSent(false)} style={{cursor:'pointer'}}>
-                            Wrong email? Go Back
-                        </small>
-                    </div>
-                  </Form>
-                )}
 
-                <div className="text-center mt-4 border-top pt-3">
-                  <small>Don't have an account? <a href="/register" className="text-decoration-none">Register here</a></small>
-                </div>
-              </CardBody>
-            </Card>
-          </Col>
-        </Row>
-      </Container>
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <Label htmlFor="password">Password</Label>
+                            <Link to="/forgot-password" class="text-xs text-primary hover:underline">
+                                Forgot password?
+                            </Link>
+                        </div>
+                        <div className="relative">
+                            <Lock className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
+                            <Input
+                                id="password" name="password" type="password"
+                                className="pl-9"
+                                placeholder="••••••••"
+                                value={credentials.password} onChange={handleChange}
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                        {loading ? "Verifying..." : "Continue"} <ArrowRight size={16} className="ml-2" />
+                    </Button>
+
+                    <div className="text-center text-sm text-muted-foreground mt-4">
+                        Don't have an account?{" "}
+                        <Link to="/register" className="text-primary font-medium hover:underline">
+                            Sign up
+                        </Link>
+                    </div>
+                </form>
+            ) : (
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="otp">One-Time Password</Label>
+                        <div className="relative">
+                            <KeyRound className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
+                            <Input
+                                id="otp" name="otp" type="text"
+                                className="pl-9 tracking-widest"
+                                placeholder="123456"
+                                value={credentials.otp} onChange={handleChange}
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                        {loading ? "Checking..." : "Verify & Login"}
+                    </Button>
+                    
+                    <button 
+                        type="button"
+                        onClick={() => setStep(1)}
+                        className="w-full text-sm text-muted-foreground hover:text-primary mt-2"
+                    >
+                        Back to Login
+                    </button>
+                </form>
+            )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

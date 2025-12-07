@@ -1,246 +1,100 @@
-// src/components/ProfilePage.js
-import React, { useState, useEffect } from 'react';
-import { fetchClientProfile, updateClientProfile } from '../api.js';
-import { 
-  Container, Row, Col, Form, FormGroup, 
-  Label, Input, Button, Alert, Card, CardBody, 
-  CardTitle, CardText, Badge 
-} from 'reactstrap';
-import { FiUser, FiMail, FiPhone, FiMapPin, FiLock } from 'react-icons/fi';
-import './ProfilePage.css';
+import React, { useState, useEffect } from "react";
+import api from "../../api";
+import ClientLayout from "./ClientLayout";
+import { toast } from "react-toastify";
+import { User, Phone, Mail, MapPin, Save } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
+import { Label } from "../ui/Label";
 
-const ProfilePage = () => {
+const ClientProfile = () => {
   const [profile, setProfile] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    address: '',
-    password: '',
-    confirmPassword: ''
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    address: ""
   });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const response = await fetchClientProfile();
-        setProfile({
-          ...response.data,
-          password: '',
-          confirmPassword: ''
-        });
-        setLoading(false);
-      } catch (error) {
-        setError('Failed to fetch profile');
-        setLoading(false);
-      }
-    };
-    loadProfile();
+    api.get("/client/me").then(res => setProfile(res.data)).catch(console.error);
   }, []);
 
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-    setError(null);
-    
-    if (profile.password !== profile.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    try {
-      await updateClientProfile(profile);
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
-    } catch (error) {
-      setError('Failed to update profile');
-    }
-  };
-
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setProfile(prev => ({
-      ...prev,
-      [name]: value
-    }));
+      setProfile({ ...profile, [e.target.name]: e.target.value });
   };
 
-  if (loading) return (
-    <div className="loading-overlay">
-      <div className="spinner"></div>
-      <p>Loading your profile...</p>
-    </div>
-  );
+  const handleUpdate = async (e) => {
+      e.preventDefault();
+      try {
+          await api.put("/client/update", profile);
+          toast.success("Profile updated successfully");
+      } catch (err) {
+          toast.error("Failed to update profile");
+      }
+  };
 
   return (
-    <Container className="profile-page">
-      <Row>
-        <Col lg={4}>
-          <Card className="profile-card">
-            <CardBody>
-              <div className="profile-header">
-                <div className="avatar">
-                  {profile.firstName.charAt(0)}{profile.lastName.charAt(0)}
-                </div>
-                <CardTitle className="profile-name">
-                  {profile.firstName} {profile.lastName}
-                </CardTitle>
-                <Badge color="success" className="verified-badge">
-                  Verified Account
-                </Badge>
-              </div>
-              
-              <div className="profile-info">
-                <div className="info-item">
-                  <FiMail className="icon" />
-                  <CardText>{profile.email}</CardText>
-                </div>
-                <div className="info-item">
-                  <FiPhone className="icon" />
-                  <CardText>{profile.phone || 'Not provided'}</CardText>
-                </div>
-                <div className="info-item">
-                  <FiMapPin className="icon" />
-                  <CardText>{profile.address || 'Not provided'}</CardText>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
-        </Col>
+    <ClientLayout>
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">My Profile</h1>
+          <p className="text-muted-foreground mt-1">Manage your contact information.</p>
+        </div>
 
-        <Col lg={8}>
-          <Card className="edit-profile-card">
-            <CardBody>
-              <CardTitle className="edit-title">Edit Profile</CardTitle>
-              
-              {success && (
-                <Alert color="success" className="alert-success">
-                  Profile updated successfully!
-                </Alert>
-              )}
-              {error && (
-                <Alert color="danger" className="alert-error">
-                  {error}
-                </Alert>
-              )}
+        <Card>
+            <CardHeader>
+                <CardTitle>Personal Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <form onSubmit={handleUpdate} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>First Name</Label>
+                            <Input name="firstName" value={profile.firstName} onChange={handleChange} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Last Name</Label>
+                            <Input name="lastName" value={profile.lastName} onChange={handleChange} />
+                        </div>
+                    </div>
 
-              <Form onSubmit={handleUpdateProfile}>
-                <Row>
-                  <Col md={6}>
-                    <FormGroup>
-                      <Label for="firstName">
-                        <FiUser className="input-icon" /> First Name
-                      </Label>
-                      <Input
-                        type="text"
-                        id="firstName"
-                        name="firstName"
-                        value={profile.firstName}
-                        onChange={handleChange}
-                        required
-                      />
-                    </FormGroup>
-                  </Col>
-                  <Col md={6}>
-                    <FormGroup>
-                      <Label for="lastName">Last Name</Label>
-                      <Input
-                        type="text"
-                        id="lastName"
-                        name="lastName"
-                        value={profile.lastName}
-                        onChange={handleChange}
-                      />
-                    </FormGroup>
-                  </Col>
-                </Row>
+                    <div className="space-y-2">
+                        <Label>Email</Label>
+                        <div className="relative">
+                            <Mail className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
+                            <Input name="email" value={profile.email} disabled className="pl-9 bg-muted/50" />
+                        </div>
+                    </div>
 
-                <FormGroup>
-                  <Label for="email">
-                    <FiMail className="input-icon" /> Email
-                  </Label>
-                  <Input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={profile.email}
-                    onChange={handleChange}
-                    disabled
-                  />
-                </FormGroup>
+                    <div className="space-y-2">
+                        <Label>Phone Number</Label>
+                        <div className="relative">
+                            <Phone className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
+                            <Input name="phone" value={profile.phone} onChange={handleChange} className="pl-9" />
+                        </div>
+                    </div>
 
-                <FormGroup>
-                  <Label for="phone">
-                    <FiPhone className="input-icon" /> Phone
-                  </Label>
-                  <Input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    value={profile.phone}
-                    onChange={handleChange}
-                  />
-                </FormGroup>
+                    <div className="space-y-2">
+                        <Label>Address</Label>
+                        <div className="relative">
+                            <MapPin className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
+                            <Input name="address" value={profile.address} onChange={handleChange} className="pl-9" placeholder="123 Main St" />
+                        </div>
+                    </div>
 
-                <FormGroup>
-                  <Label for="address">
-                    <FiMapPin className="input-icon" /> Address
-                  </Label>
-                  <Input
-                    type="text"
-                    id="address"
-                    name="address"
-                    value={profile.address}
-                    onChange={handleChange}
-                  />
-                </FormGroup>
-
-                <hr className="divider" />
-
-                <h5 className="section-title">
-                  <FiLock className="section-icon" /> Change Password
-                </h5>
-                <p className="section-subtitle">Leave blank to keep current password</p>
-
-                <Row>
-                  <Col md={6}>
-                    <FormGroup>
-                      <Label for="password">New Password</Label>
-                      <Input
-                        type="password"
-                        id="password"
-                        name="password"
-                        value={profile.password}
-                        onChange={handleChange}
-                      />
-                    </FormGroup>
-                  </Col>
-                  <Col md={6}>
-                    <FormGroup>
-                      <Label for="confirmPassword">Confirm Password</Label>
-                      <Input
-                        type="password"
-                        id="confirmPassword"
-                        name="confirmPassword"
-                        value={profile.confirmPassword}
-                        onChange={handleChange}
-                      />
-                    </FormGroup>
-                  </Col>
-                </Row>
-
-                <Button type="submit" color="primary" className="save-btn">
-                  Save Changes
-                </Button>
-              </Form>
-            </CardBody>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+                    <div className="pt-4">
+                        <Button type="submit">
+                            <Save size={16} className="mr-2" /> Save Changes
+                        </Button>
+                    </div>
+                </form>
+            </CardContent>
+        </Card>
+      </div>
+    </ClientLayout>
   );
 };
 
-export default ProfilePage;
+export default ClientProfile;

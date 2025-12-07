@@ -1,29 +1,25 @@
 import React from 'react';
-import { Container, Button } from 'reactstrap';
-import { Link } from 'react-router-dom';
-import Lottie from "lottie-react";
-// You can use a specific 404 animation, or reuse 'loading' temporarily if you lack one
-import animationData from './animation/Animation - loading.json'; 
+import { useNavigate } from 'react-router-dom';
+import { Home, AlertCircle } from 'lucide-react';
+import { Button } from './ui/Button';
 
 const NotFoundPage = () => {
+    const navigate = useNavigate();
+
     return (
-        <Container className="d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '80vh' }}>
-            <div style={{ width: '300px', marginBottom: '20px' }}>
-                <Lottie animationData={animationData} loop={true} />
+        <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 text-center">
+            <div className="bg-primary/10 p-6 rounded-full text-primary mb-6">
+                <AlertCircle size={64} />
             </div>
-            
-            <h1 className="display-4 fw-bold text-dark">404</h1>
-            <h4 className="text-muted mb-4">Page Not Found</h4>
-            <p className="text-center text-secondary mb-5" style={{ maxWidth: '500px' }}>
+            <h1 className="text-6xl font-bold text-primary mb-2">404</h1>
+            <h2 className="text-2xl font-semibold mb-4">Page Not Found</h2>
+            <p className="text-muted-foreground max-w-md mb-8">
                 The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.
             </p>
-            
-            <Link to="/dashboard">
-                <Button color="primary" size="lg" className="px-5 rounded-pill shadow">
-                    Back to Dashboard
-                </Button>
-            </Link>
-        </Container>
+            <Button onClick={() => navigate('/')} size="lg">
+                <Home size={18} className="mr-2" /> Go to Home
+            </Button>
+        </div>
     );
 };
 

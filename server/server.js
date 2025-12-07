@@ -46,7 +46,7 @@ app.use('/api/', limiter);
 
 // 3. CORS & Body Parser
 app.use(cors({
-  origin: 'http://localhost:3000', // Update this if your frontend runs on a different port (e.g., 3001)
+  origin: ['http://localhost:3000','http://localhost:3001'], // Update this if your frontend runs on a different port (e.g., 3001)
   credentials: true,
 }));
 app.use(bodyParser.json());

@@ -8,7 +8,7 @@ const SettingsPage = () => {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const response = await fetch('/api/settings/');
+                const response = await api.get('/settings/');
                 const data = await response.json();
                 setSettings(data);
             } catch (error) {
@@ -21,7 +21,7 @@ const SettingsPage = () => {
     const handleSaveSettings = async (e) => {
         e.preventDefault();
         try {
-            await fetch('/api/settings/', {
+            await api.put('/settings/', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(settings),

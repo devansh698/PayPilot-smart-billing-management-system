@@ -1,22 +1,20 @@
 import React, { useState, useEffect } from "react";
-import api from "../api"; // FIX: Using secure API instance
-import { 
-  Box, Grid, Card, CardContent, Typography, TextField, Button, 
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, 
-  Paper, MenuItem, IconButton, Divider, InputAdornment 
-} from "@mui/material";
-import { Add, Delete, Save, ReceiptLong, ArrowBack } from "@mui/icons-material";
+import api from "../api";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { ArrowLeft, Save, Plus, Trash2, Calendar, FileText } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
+import { Button } from "./ui/Button";
+import { Input } from "./ui/Input";
+import { Label } from "./ui/Label";
 
 const CreateInvoice = () => {
   const navigate = useNavigate();
   
-  // 1. Initial State
+  // State
   const [invoiceData, setInvoiceData] = useState({
     invoiceNo: "Loading...",
     clientId: "",
-    // REQUESTED FEATURE: Date is fixed to today
     date: new Date().toISOString().split('T')[0], 
     notes: "",
     terms: "Payment due within 15 days. Thank you for your business.",
@@ -35,10 +33,10 @@ const CreateInvoice = () => {
   const [totals, setTotals] = useState({
     subtotal: 0, tax: 0, discount: 0, totalAmount: 0
   });
-  const [taxRate, setTaxRate] = useState(18); // Editable Tax Rate
-  const [discountRate, setDiscountRate] = useState(0); // New Feature: Discount
+  const [taxRate, setTaxRate] = useState(18);
+  const [discountRate, setDiscountRate] = useState(0);
 
-  // 2. Load Data
+  // Load Data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -58,7 +56,7 @@ const CreateInvoice = () => {
     fetchData();
   }, []);
 
-  // 3. Logic Handling
+  // Logic
   const handleProductSelect = (e) => {
     const product = products.find(p => p._id === e.target.value);
     if (product) {
@@ -82,7 +80,6 @@ const CreateInvoice = () => {
     setItems(items.filter((_, i) => i !== index));
   };
 
-  // Recalculate totals whenever items, tax, or discount changes
   useEffect(() => {
     const sub = items.reduce((acc, item) => acc + item.amount, 0);
     const discAmount = (sub * discountRate) / 100;
@@ -97,7 +94,6 @@ const CreateInvoice = () => {
     });
   }, [items, taxRate, discountRate]);
 
-  // 4. Submit
   const handleSubmit = async () => {
     if (!invoiceData.clientId || items.length === 0) return toast.error("Please fill required fields");
 
@@ -107,7 +103,6 @@ const CreateInvoice = () => {
       subtotal: totals.subtotal,
       tax: totals.tax,
       totalAmount: totals.totalAmount,
-      // Sending custom fields to backend (ensure your Invoice Model has these fields)
       notes: invoiceData.notes,
       terms: invoiceData.terms
     };
@@ -122,170 +117,204 @@ const CreateInvoice = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" mb={3}>
-        <Typography variant="h4" fontWeight="bold" color="text.primary">
-          <ReceiptLong sx={{ verticalAlign: 'middle', mr: 1, mb: 0.5 }} />
-          New Invoice
-        </Typography>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)}>Back</Button>
-      </Box>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft size={18} />
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">New Invoice</h1>
+        </div>
+        <Button onClick={handleSubmit} size="lg" className="bg-primary hover:bg-primary/90">
+          <Save size={18} className="mr-2" /> Generate Invoice
+        </Button>
+      </div>
 
-      <Grid container spacing={3}>
-        {/* Left Col: Invoice Info */}
-        <Grid item xs={12} md={4}>
-          <Card sx={{ p: 2, height: '100%' }}>
-            <Typography variant="h6" gutterBottom>Info</Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <TextField fullWidth label="Invoice #" value={invoiceData.invoiceNo} disabled variant="filled" />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField 
-                  fullWidth 
-                  label="Date" 
-                  value={invoiceData.date} 
-                  disabled // REQUESTED FEATURE: LOCKED DATE
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">📅</InputAdornment>,
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  select
-                  fullWidth
-                  label="Select Client"
-                  value={invoiceData.clientId}
-                  onChange={(e) => setInvoiceData({ ...invoiceData, clientId: e.target.value })}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* Left Column: Invoice Info */}
+        <div className="md:col-span-1 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Invoice Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Invoice Number</Label>
+                <div className="flex items-center px-3 py-2 border border-input rounded-md bg-muted/50 text-muted-foreground">
+                  <FileText size={16} className="mr-2 opacity-50"/>
+                  {invoiceData.invoiceNo}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
+                  <Input 
+                    value={invoiceData.date} 
+                    disabled 
+                    className="pl-9 bg-muted/50"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Client</Label>
+                <select
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    value={invoiceData.clientId}
+                    onChange={(e) => setInvoiceData({ ...invoiceData, clientId: e.target.value })}
                 >
-                  {clients.map(c => (
-                    <MenuItem key={c._id} value={c._id}>{c.firstName} {c.lastName}</MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-            </Grid>
+                    <option value="">Select a Client</option>
+                    {clients.map(c => (
+                        <option key={c._id} value={c._id}>{c.firstName} {c.lastName}</option>
+                    ))}
+                </select>
+              </div>
+            </CardContent>
           </Card>
-        </Grid>
 
-        {/* Right Col: Items & Customization */}
-        <Grid item xs={12} md={8}>
-          <Card sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>Items</Typography>
-            
-            {/* Item Adder */}
-            <Box display="flex" gap={2} mb={2} alignItems="center">
-              <TextField 
-                select label="Product" size="small" sx={{ flexGrow: 1 }}
-                value={currentItem.productId} 
-                onChange={handleProductSelect}
-              >
-                {products.map(p => <MenuItem key={p._id} value={p._id}>{p.name} (${p.price})</MenuItem>)}
-              </TextField>
-              <TextField 
-                label="Qty" type="number" size="small" sx={{ width: 80 }}
-                value={currentItem.quantity}
-                onChange={(e) => {
-                  const q = Number(e.target.value);
-                  setCurrentItem(prev => ({ ...prev, quantity: q, amount: q * prev.rate }));
-                }}
-              />
-              <Typography sx={{ width: 80, textAlign: 'right' }}>${currentItem.amount}</Typography>
-              <Button variant="contained" onClick={addItem}><Add /></Button>
-            </Box>
-
-            {/* Items Table */}
-            <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
-              <Table size="small">
-                <TableHead sx={{ bgcolor: 'action.hover' }}>
-                  <TableRow>
-                    <TableCell>Product</TableCell>
-                    <TableCell align="center">Qty</TableCell>
-                    <TableCell align="right">Rate</TableCell>
-                    <TableCell align="right">Amount</TableCell>
-                    <TableCell align="center">Action</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {items.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell align="center">{item.quantity}</TableCell>
-                      <TableCell align="right">${item.rate}</TableCell>
-                      <TableCell align="right">${item.amount}</TableCell>
-                      <TableCell align="center">
-                        <IconButton size="small" color="error" onClick={() => removeItem(index)}><Delete /></IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {items.length === 0 && (
-                    <TableRow><TableCell colSpan={5} align="center">No items added</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-
-            <Divider sx={{ my: 2 }} />
-
-            {/* Footer: Customization & Totals */}
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                 {/* REQUESTED FEATURE: CUSTOMIZE OPTION */}
-                <Typography variant="subtitle2" color="primary">Invoice Customization</Typography>
-                <TextField 
-                  fullWidth multiline rows={2} label="Notes" margin="dense" size="small"
-                  value={invoiceData.notes}
-                  onChange={e => setInvoiceData({...invoiceData, notes: e.target.value})}
-                />
-                <TextField 
-                  fullWidth multiline rows={2} label="Terms & Conditions" margin="dense" size="small"
-                  value={invoiceData.terms}
-                  onChange={e => setInvoiceData({...invoiceData, terms: e.target.value})}
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <Box display="flex" justifyContent="space-between" mb={1}>
-                  <Typography>Subtotal:</Typography>
-                  <Typography fontWeight="bold">${totals.subtotal}</Typography>
-                </Box>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                  <Typography>Discount (%):</Typography>
-                  <TextField 
-                    type="number" size="small" variant="standard" sx={{ width: 50, textAlign: 'right' }}
-                    value={discountRate} onChange={e => setDiscountRate(Number(e.target.value))}
-                  />
-                </Box>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                  <Typography>Tax Rate (%):</Typography>
-                  <TextField 
-                    type="number" size="small" variant="standard" sx={{ width: 50, textAlign: 'right' }}
-                    value={taxRate} onChange={e => setTaxRate(Number(e.target.value))}
-                  />
-                </Box>
-                <Divider />
-                <Box display="flex" justifyContent="space-between" mt={2}>
-                  <Typography variant="h5" color="primary">Total:</Typography>
-                  <Typography variant="h5" color="primary">${totals.totalAmount}</Typography>
-                </Box>
-              </Grid>
-            </Grid>
-
-            <Box mt={3} textAlign="right">
-              <Button 
-                variant="contained" size="large" 
-                startIcon={<Save />} onClick={handleSubmit}
-                sx={{ px: 4, borderRadius: 2 }}
-              >
-                Generate Invoice
-              </Button>
-            </Box>
-
+          <Card>
+            <CardHeader>
+                <CardTitle>Terms & Notes</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <Label>Notes</Label>
+                    <textarea 
+                        className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring min-h-[80px]"
+                        value={invoiceData.notes}
+                        onChange={e => setInvoiceData({...invoiceData, notes: e.target.value})}
+                        placeholder="Add notes..."
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label>Terms</Label>
+                    <textarea 
+                        className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring min-h-[80px]"
+                        value={invoiceData.terms}
+                        onChange={e => setInvoiceData({...invoiceData, terms: e.target.value})}
+                    />
+                </div>
+            </CardContent>
           </Card>
-        </Grid>
-      </Grid>
-    </Box>
+        </div>
+
+        {/* Right Column: Line Items */}
+        <div className="md:col-span-2 space-y-6">
+          <Card className="h-full flex flex-col">
+            <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Line Items</CardTitle>
+                <span className="text-sm text-muted-foreground">{items.length} items added</span>
+            </CardHeader>
+            <CardContent className="flex-1">
+                {/* Item Adder Form */}
+                <div className="flex gap-3 mb-6 p-4 bg-muted/30 rounded-lg border border-border">
+                    <div className="flex-1">
+                        <Label className="text-xs mb-1 block">Product</Label>
+                        <select
+                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            value={currentItem.productId} 
+                            onChange={handleProductSelect}
+                        >
+                             <option value="">Select Product</option>
+                             {products.map(p => <option key={p._id} value={p._id}>{p.name} (${p.price})</option>)}
+                        </select>
+                    </div>
+                    <div className="w-24">
+                         <Label className="text-xs mb-1 block">Qty</Label>
+                         <Input 
+                            type="number" min="1"
+                            value={currentItem.quantity}
+                            onChange={(e) => {
+                                const q = Number(e.target.value);
+                                setCurrentItem(prev => ({ ...prev, quantity: q, amount: q * prev.rate }));
+                            }}
+                         />
+                    </div>
+                    <div className="w-24 pt-6">
+                         <Button onClick={addItem} className="w-full">
+                            <Plus size={16} />
+                         </Button>
+                    </div>
+                </div>
+
+                {/* Items Table */}
+                <div className="rounded-md border border-border overflow-hidden mb-6">
+                    <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                            <tr>
+                                <th className="px-4 py-3 text-left">Product</th>
+                                <th className="px-4 py-3 text-center">Qty</th>
+                                <th className="px-4 py-3 text-right">Rate</th>
+                                <th className="px-4 py-3 text-right">Amount</th>
+                                <th className="px-4 py-3 text-center"></th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {items.map((item, index) => (
+                                <tr key={index}>
+                                    <td className="px-4 py-3">{item.name}</td>
+                                    <td className="px-4 py-3 text-center">{item.quantity}</td>
+                                    <td className="px-4 py-3 text-right">${item.rate}</td>
+                                    <td className="px-4 py-3 text-right font-medium">${item.amount}</td>
+                                    <td className="px-4 py-3 text-center">
+                                        <button onClick={() => removeItem(index)} className="text-destructive hover:bg-destructive/10 p-1 rounded">
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                            {items.length === 0 && (
+                                <tr>
+                                    <td colSpan="5" className="px-4 py-8 text-center text-muted-foreground">
+                                        No items added yet.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Totals Section */}
+                <div className="flex justify-end border-t border-border pt-6">
+                    <div className="w-full md:w-1/2 space-y-3">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">Subtotal</span>
+                            <span className="font-medium">${totals.subtotal}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">Discount (%)</span>
+                            <Input 
+                                type="number" 
+                                className="w-20 h-7 text-right" 
+                                value={discountRate} 
+                                onChange={e => setDiscountRate(Number(e.target.value))}
+                            />
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-muted-foreground">Tax Rate (%)</span>
+                            <Input 
+                                type="number" 
+                                className="w-20 h-7 text-right" 
+                                value={taxRate} 
+                                onChange={e => setTaxRate(Number(e.target.value))}
+                            />
+                        </div>
+                        <div className="border-t border-border pt-3 flex justify-between items-center">
+                            <span className="text-lg font-bold">Total</span>
+                            <span className="text-xl font-bold text-primary">${totals.totalAmount}</span>
+                        </div>
+                    </div>
+                </div>
+
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
   );
 };
 

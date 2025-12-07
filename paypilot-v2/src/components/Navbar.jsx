@@ -1,32 +1,23 @@
-// paypilot/src/components/Navbar.js
 import React, { useState, useEffect } from "react";
-import { 
-  AppBar, Toolbar, IconButton, Typography, Box, Badge, Menu, MenuItem, 
-  List, ListItem, ListItemText, Divider, Avatar 
-} from "@mui/material";
-import { Menu as MenuIcon, Notifications, ExitToApp, Person } from '@mui/icons-material';
 import { useNavigate } from "react-router-dom";
-// FIX: Import the configured 'api' instance instead of raw 'axios'
-// This ensures the Authorization token is sent with the request
-import api from '../api'; 
-import { toast } from 'react-toastify';
+import { Search, Bell, User, Menu, LogOut, UserCircle } from "lucide-react";
+import api from "../api";
+import { toast } from "react-toastify";
+import { cn } from "../lib/utils";
 
 const Navbar = ({ onMenuClick, isMobile }) => {
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [notifEl, setNotifEl] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showNotifMenu, setShowNotifMenu] = useState(false);
   const navigate = useNavigate();
 
-  // Fetch Notifications
   const fetchNotifications = async () => {
     try {
-      // FIX: Use 'api.get' instead of 'axios.get'
-      const res = await api.get('/notifications'); 
+      const res = await api.get('/notifications');
       setNotifications(res.data);
       setUnreadCount(res.data.filter(n => !n.read).length);
     } catch (error) {
-      // It's often good to suppress 401 errors in polling to avoid console spam if logged out
       if (error.response && error.response.status !== 401) {
         console.error("Failed to fetch notifications");
       }
@@ -35,7 +26,7 @@ const Navbar = ({ onMenuClick, isMobile }) => {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000); // Poll every 30s
+    const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -46,72 +37,87 @@ const Navbar = ({ onMenuClick, isMobile }) => {
   };
 
   return (
-    <AppBar position="sticky" elevation={1} sx={{ bgcolor: 'white', color: '#333' }}>
-      <Toolbar>
+    <header className="h-16 bg-card border-b border-border flex items-center justify-between px-4 md:px-8 sticky top-0 z-40 shadow-sm">
+      <div className="flex items-center gap-4">
         {isMobile && (
-          <IconButton edge="start" color="inherit" onClick={onMenuClick} sx={{ mr: 2 }}>
-            <MenuIcon />
-          </IconButton>
+          <button onClick={onMenuClick} className="p-2 hover:bg-accent rounded-md">
+            <Menu size={20} />
+          </button>
         )}
+        
+        {/* Search Bar (Visual only to match reference) */}
+        <div className="hidden md:block relative w-64">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+          <input 
+            type="text" 
+            placeholder="Search..." 
+            className="w-full h-9 pl-9 pr-4 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+        </div>
+      </div>
 
-        <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 'bold', color: '#1a237e' }}>
-          PayPilot <span style={{fontSize: '0.8rem', color: '#666'}}>Admin Portal</span>
-        </Typography>
-
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          
-          {/* Notifications Icon */}
-          <IconButton onClick={(e) => setNotifEl(e.currentTarget)}>
-            <Badge badgeContent={unreadCount} color="error">
-              <Notifications />
-            </Badge>
-          </IconButton>
-
-          {/* User Profile Icon */}
-          <IconButton onClick={(e) => setAnchorEl(e.currentTarget)}>
-             <Avatar sx={{ width: 35, height: 35, bgcolor: '#1a237e' }}>A</Avatar>
-          </IconButton>
-        </Box>
-
-        {/* Notifications Menu */}
-        <Menu
-          anchorEl={notifEl}
-          open={Boolean(notifEl)}
-          onClose={() => setNotifEl(null)}
-          PaperProps={{ sx: { width: 320, maxHeight: 400 } }}
-        >
-          <Typography sx={{ p: 2, fontWeight: 'bold' }}>Notifications</Typography>
-          <Divider />
-          <List dense>
-            {notifications.length > 0 ? notifications.map((n, i) => (
-              <ListItem key={i} button divider>
-                <ListItemText 
-                  primary={n.message} 
-                  secondary={new Date(n.date).toLocaleString()} 
-                  primaryTypographyProps={{ fontSize: '0.9rem' }}
-                />
-              </ListItem>
-            )) : (
-              <ListItem><ListItemText primary="No new notifications" /></ListItem>
+      <div className="flex items-center gap-4">
+        {/* Notifications */}
+        <div className="relative">
+          <button 
+            onClick={() => { setShowNotifMenu(!showNotifMenu); setShowProfileMenu(false); }}
+            className="p-2 hover:bg-accent rounded-full transition-colors relative"
+          >
+            <Bell size={20} className="text-foreground" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-destructive rounded-full border-2 border-card"></span>
             )}
-          </List>
-        </Menu>
+          </button>
 
-        {/* Profile Menu */}
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={() => setAnchorEl(null)}
-        >
-          <MenuItem onClick={() => navigate('/profile')}>
-            <Person sx={{ mr: 1 }} /> Profile
-          </MenuItem>
-          <MenuItem onClick={handleLogout} sx={{ color: 'red' }}>
-            <ExitToApp sx={{ mr: 1 }} /> Logout
-          </MenuItem>
-        </Menu>
-      </Toolbar>
-    </AppBar>
+          {/* Notifications Dropdown */}
+          {showNotifMenu && (
+            <div className="absolute right-0 mt-2 w-80 bg-popover border border-border rounded-lg shadow-lg py-2 z-50">
+              <div className="px-4 py-2 border-b border-border font-semibold text-sm">Notifications</div>
+              <div className="max-h-64 overflow-y-auto">
+                {notifications.length > 0 ? (
+                  notifications.map((n, i) => (
+                    <div key={i} className="px-4 py-3 border-b border-border last:border-0 hover:bg-accent/50 cursor-pointer">
+                      <p className="text-sm text-foreground">{n.message}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{new Date(n.date).toLocaleString()}</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-4 py-4 text-center text-sm text-muted-foreground">No new notifications</div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* User Profile */}
+        <div className="relative">
+          <button 
+            onClick={() => { setShowProfileMenu(!showProfileMenu); setShowNotifMenu(false); }}
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+          >
+            <User size={20} />
+          </button>
+
+          {/* Profile Dropdown */}
+          {showProfileMenu && (
+            <div className="absolute right-0 mt-2 w-48 bg-popover border border-border rounded-lg shadow-lg py-1 z-50">
+              <button 
+                onClick={() => navigate('/profile')}
+                className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent flex items-center gap-2"
+              >
+                <UserCircle size={16} /> Profile
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10 flex items-center gap-2"
+              >
+                <LogOut size={16} /> Logout
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
   );
 };
 

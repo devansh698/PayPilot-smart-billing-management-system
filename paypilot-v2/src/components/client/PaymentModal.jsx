@@ -7,6 +7,7 @@ import {
 import { FiDollarSign, FiCreditCard, FiCheck } from 'react-icons/fi';
 import axios from 'axios';
 import './PaymentModal.css';
+import api from '../api.jsx';
 
 const PaymentModal = ({ isOpen, toggle, orderId }) => {
     const [amount, setAmount] = useState('');
@@ -17,7 +18,7 @@ const PaymentModal = ({ isOpen, toggle, orderId }) => {
     const handlePayment = async (e) => {
         e.preventDefault();
         try {
-            const response = await axios.post('/api/client/payments', { 
+            const response = await api.post('/client/payments', { 
                 orderId, 
                 amount,
                 paymentMethod

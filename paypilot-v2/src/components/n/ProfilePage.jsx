@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Form, FormGroup, Label, Input, Button, Alert } from 'reactstrap';
 import { useAuth } from '../paypilot/src/context/AuthContext';
+import api from '../api';
 
 const ProfilePage = () => {
     const { user, error, logout } = useAuth();
@@ -14,7 +15,7 @@ const ProfilePage = () => {
         if (!token) return;
 
         const headers = new Headers({ 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' });
-        const request = new Request('/api/auth/me', { method: 'GET', headers: headers });
+        const request = new Request('/auth/me', { method: 'GET', headers: headers });
 
         try {
             const response = await fetch(request);
@@ -38,7 +39,7 @@ const ProfilePage = () => {
         }
 
         const headers = new Headers({ 'Authorization': `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'application/json' });
-        const request = new Request(`/api/user/${profile._id}/change-password`, {
+        const request = new Request(`/user/${profile._id}/change-password`, {
             method: 'PATCH',
             headers: headers,
             body: JSON.stringify({ oldPassword: password.currentPassword, newPassword: password.newPassword }),

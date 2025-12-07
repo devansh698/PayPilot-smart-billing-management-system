@@ -1,85 +1,95 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Container, Row, Col, Button, Card, CardBody } from 'reactstrap';
-import { FaBolt, FaShieldAlt, FaChartLine } from 'react-icons/fa';
-import NavbarComponent from './home/Navbar'; // Keep your existing Home Navbar
-// import './home/home.css'; // Make sure to add some CSS for spacing
+import { CheckCircle, BarChart3, ShieldCheck, ArrowRight, LayoutDashboard } from 'lucide-react';
+import { Button } from './ui/Button';
 
-const Landing = () => {
-  return (
-    <div className="landing-page">
-      <NavbarComponent />
-      
-      {/* Hero Section */}
-      <section className="hero-section text-white text-center py-5" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', minHeight: '80vh', display: 'flex', alignItems: 'center' }}>
-        <Container>
-          <Row className="justify-content-center">
-            <Col md={8}>
-              <h1 className="display-3 fw-bold mb-4">Smart Billing Made Simple</h1>
-              <p className="lead mb-5 opacity-75">
-                PayPilot handles your invoices, inventory, and clients seamlessly. 
-                Focus on growing your business while we handle the paperwork.
-              </p>
-              <div className="d-flex justify-content-center gap-3">
-                <Link to="/register">
-                  <Button color="light" size="lg" className="px-5 text-primary fw-bold">Get Started</Button>
-                </Link>
-                <Link to="/login">
-                  <Button outline color="light" size="lg" className="px-5">Login</Button>
-                </Link>
-              </div>
-            </Col>
-          </Row>
-        </Container>
-      </section>
+const LandingPage = () => {
+    return (
+        <div className="min-h-screen bg-background text-foreground flex flex-col">
+            {/* Navbar */}
+            <nav className="border-b border-border sticky top-0 bg-background/95 backdrop-blur z-50">
+                <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-xl text-primary">
+                        <LayoutDashboard /> PayPilot
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <Link to="/login">
+                            <Button variant="ghost">Login</Button>
+                        </Link>
+                        <Link to="/register">
+                            <Button>Get Started</Button>
+                        </Link>
+                    </div>
+                </div>
+            </nav>
 
-      {/* Features Section */}
-      <section className="py-5 bg-white">
-        <Container>
-          <div className="text-center mb-5">
-            <h2 className="fw-bold text-dark">Why Choose PayPilot?</h2>
-            <p className="text-muted">Everything you need to manage your business finances.</p>
-          </div>
-          <Row>
-            <Col md={4} className="mb-4">
-              <Card className="h-100 border-0 shadow-sm hover-effect">
-                <CardBody className="text-center p-4">
-                  <div className="mb-3 text-primary"><FaBolt size={40}/></div>
-                  <h4>Fast Invoicing</h4>
-                  <p className="text-muted">Create professional invoices in seconds. Auto-calculate taxes and totals instantly.</p>
-                </CardBody>
-              </Card>
-            </Col>
-            <Col md={4} className="mb-4">
-              <Card className="h-100 border-0 shadow-sm hover-effect">
-                <CardBody className="text-center p-4">
-                  <div className="mb-3 text-success"><FaChartLine size={40}/></div>
-                  <h4>Real-time Analytics</h4>
-                  <p className="text-muted">Track your sales, revenue, and pending payments with our interactive dashboard.</p>
-                </CardBody>
-              </Card>
-            </Col>
-            <Col md={4} className="mb-4">
-              <Card className="h-100 border-0 shadow-sm hover-effect">
-                <CardBody className="text-center p-4">
-                  <div className="mb-3 text-info"><FaShieldAlt size={40}/></div>
-                  <h4>Secure Portal</h4>
-                  <p className="text-muted">Dedicated portals for your clients to view orders and manage their profiles securely.</p>
-                </CardBody>
-              </Card>
-            </Col>
-          </Row>
-        </Container>
-      </section>
+            {/* Hero Section */}
+            <section className="py-20 md:py-32 px-6 text-center container mx-auto">
+                <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+                    Smart Billing for Modern Business
+                </h1>
+                <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
+                    Streamline your invoicing, manage inventory, and track payments all in one intuitive platform.
+                </p>
+                <div className="flex justify-center gap-4">
+                    <Link to="/register">
+                        <Button size="lg" className="h-12 px-8 text-lg">
+                            Start Free Trial <ArrowRight className="ml-2" />
+                        </Button>
+                    </Link>
+                    <Link to="/login">
+                        <Button size="lg" variant="outline" className="h-12 px-8 text-lg">
+                            Live Demo
+                        </Button>
+                    </Link>
+                </div>
+            </section>
 
-      {/* Footer */}
-      <footer className="bg-dark text-white py-4 text-center">
-        <Container>
-          <p className="mb-0">&copy; {new Date().getFullYear()} PayPilot. All rights reserved.</p>
-        </Container>
-      </footer>
-    </div>
-  );
+            {/* Features */}
+            <section className="bg-muted/30 py-20 px-6">
+                <div className="container mx-auto grid md:grid-cols-3 gap-8">
+                    <div className="p-6 bg-card rounded-xl border border-border shadow-sm">
+                        <div className="w-12 h-12 bg-primary/10 text-primary rounded-lg flex items-center justify-center mb-4">
+                            <CheckCircle size={24} />
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">Easy Invoicing</h3>
+                        <p className="text-muted-foreground">Create professional invoices in seconds and send them directly to your clients.</p>
+                    </div>
+                    <div className="p-6 bg-card rounded-xl border border-border shadow-sm">
+                        <div className="w-12 h-12 bg-primary/10 text-primary rounded-lg flex items-center justify-center mb-4">
+                            <BarChart3 size={24} />
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">Detailed Reports</h3>
+                        <p className="text-muted-foreground">Gain insights into your revenue, sales trends, and financial health with real-time charts.</p>
+                    </div>
+                    <div className="p-6 bg-card rounded-xl border border-border shadow-sm">
+                        <div className="w-12 h-12 bg-primary/10 text-primary rounded-lg flex items-center justify-center mb-4">
+                            <ShieldCheck size={24} />
+                        </div>
+                        <h3 className="text-xl font-bold mb-2">Secure Payments</h3>
+                        <p className="text-muted-foreground">Track payments securely and manage client transaction histories effortlessly.</p>
+                    </div>
+                </div>
+            </section>
+
+            {/* Footer */}
+            <footer className="border-t border-border py-12 px-6 mt-auto">
+                <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="flex items-center gap-2 font-bold text-lg text-primary">
+                        <LayoutDashboard size={20} /> PayPilot
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                        © {new Date().getFullYear()} PayPilot. All rights reserved.
+                    </p>
+                    <div className="flex gap-6 text-sm text-muted-foreground">
+                        <a href="#" className="hover:text-foreground">Privacy</a>
+                        <a href="#" className="hover:text-foreground">Terms</a>
+                        <a href="#" className="hover:text-foreground">Contact</a>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    );
 };
 
-export default Landing;
+export default LandingPage;

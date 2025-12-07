@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Table, Button, Alert } from 'reactstrap';
+import api from '../api';
 
 const ClientManagement = () => {
     const [clients, setClients] = useState([]);
@@ -9,7 +10,7 @@ const ClientManagement = () => {
     useEffect(() => {
         const fetchClients = async () => {
             try {
-                const response = await fetch('/api/clients/');
+                const response = await api.get('/clients/');
                 const data = await response.json();
                 setClients(data);
                 setLoading(false);
@@ -24,7 +25,7 @@ const ClientManagement = () => {
     const handleDelete = async (id) => {
         if (window.confirm('Are you sure you want to delete this client?')) {
             try {
-                await fetch(`/api/clients/${id}`, { method: 'DELETE' });
+                await api.delete(`/clients/${id}`, { method: 'DELETE' });
                 setClients(clients.filter(client => client._id !== id));
             } catch (error) {
                 setError('Failed to delete client');

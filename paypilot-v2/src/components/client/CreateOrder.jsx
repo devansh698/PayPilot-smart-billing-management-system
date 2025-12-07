@@ -1,128 +1,87 @@
-// src/components/CreateOrder.js
-import React, { useEffect, useState } from 'react';
-import { Container, Table, Button, Alert, Input } from 'reactstrap';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import api from "../../api";
+import ClientLayout from "./ClientLayout";
+import { Link } from "react-router-dom";
+import { Plus, Search } from "lucide-react";
+import { Card } from "../ui/Card";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
+import { Badge } from "../ui/Badge";
 
-const CreateOrder = () => {
-    const [products, setProducts] = useState([]);
-    const [selectedProducts, setSelectedProducts] = useState({});
-    const [subtotal, setSubtotal] = useState(0);
-    const [taxRate] = useState(0.1); // Example tax rate of 10%
-    const [tax, setTax] = useState(0);
-    const [totalAmount, setTotalAmount] = useState(0);
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-    
+const ClientOrders = () => {
+  const [orders, setOrders] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
-    useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                const response = await axios.get('/api/product/');
-                setProducts(response.data);
-            } catch (error) {
-                console.error('Error fetching products:', error);
-                setError('Failed to fetch products.');
-            }
-        };
+  useEffect(() => {
+    api.get("/client/orders")
+       .then(res => setOrders(res.data))
+       .catch(err => console.error(err));
+  }, []);
 
-        fetchProducts();
-    }, []);
+  const filteredOrders = orders.filter(o => o._id.includes(searchTerm));
 
-    const handleQuantityChange = (productId, quantity) => {
-        if (quantity < 0) return; // Prevent negative quantities
-        setSelectedProducts({
-            ...selectedProducts,
-            [productId]: quantity,
-        });
-    };
-
-    useEffect(() => {
-        const calculateAmounts = () => {
-            let subtotalCalc = 0;
-            for (const productId in selectedProducts) {
-                const product = products.find(prod => prod._id === productId);
-                if (product) {
-                    subtotalCalc += product.price * selectedProducts[productId];
-                }
-            }
-            const taxCalc = subtotalCalc * taxRate;
-            const totalCalc = subtotalCalc + taxCalc;
-
-            setSubtotal(subtotalCalc);
-            setTax(taxCalc);
-            setTotalAmount(totalCalc);
-        };
-
-        calculateAmounts();
-    }, [selectedProducts, products, taxRate]);
-
-    const handlePlaceOrder = async () => {
-        const orderDetails = Object.keys(selectedProducts).map(productId => ({
-            productId: productId, // Product ID
-            quantity: selectedProducts[productId], // Quantity
-        }));
-    
-        try {
-            setLoading(true);
-            console.log(orderDetails);
-            await axios.post('/api/clientroutes/orders', {
-                products: orderDetails,
-                subtotal: subtotal.toFixed(2),
-                tax: tax.toFixed(2),
-                totalAmount: totalAmount.toFixed(2),
-            });
-            alert('Order placed successfully!');
-            // Reset state
-            setSelectedProducts({});
-            setSubtotal(0);
-            setTax(0);
-            setTotalAmount(0);
-        } catch (error) {
-            console.error('Error placing order:', error.response.data); // Log the error response
-            setError('Failed to place order.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <Container className="mt-5">
-            <h1>Create New Order</h1>
-            {error && <Alert color="danger">{error}</Alert>}
-            {loading && <Alert color="info">Placing your order...</Alert>}
-            <Table className="table">
-                <thead>
-                    <tr>
-                        <th>Product Name</th>
-                        <th>Price</th>
-                        <th>Quantity</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {products.map(product => (
-                        <tr key={product._id}>
-                            <td>{product.name}</td>
-                            <td>Rs.{product.price .toFixed(2)}</td>
-                            <td>
-                                <Input
-                                    type="number"
-                                    min="0"
-                                    value={selectedProducts[product._id] || 0}
-                                    onChange={(e) => handleQuantityChange(product._id, Number(e.target.value))}
-                                />
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </Table>
-            <h2>Subtotal: Rs.{subtotal.toFixed(2)}</h2>
-            <h2>Tax: Rs.{tax.toFixed(2)}</h2>
-            <h2>Total Amount: Rs.{totalAmount.toFixed(2)}</h2>
-            <Button color="primary" onClick={handlePlaceOrder} disabled={totalAmount === 0 || loading}>
-                Place Order
+  return (
+    <ClientLayout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">My Orders</h1>
+            <p className="text-muted-foreground mt-1">Track history and status of your orders.</p>
+          </div>
+          <Link to="/create-order">
+            <Button>
+                <Plus size={16} className="mr-2" /> New Order
             </Button>
-        </Container>
-    );
+          </Link>
+        </div>
+
+        <Card>
+            <div className="p-6 border-b border-border">
+                <div className="relative max-w-sm">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+                    <Input
+                        placeholder="Search Order ID..."
+                        className="pl-9"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-muted/50 text-muted-foreground font-medium">
+                        <tr>
+                            <th className="px-6 py-3">Order ID</th>
+                            <th className="px-6 py-3">Date</th>
+                            <th className="px-6 py-3">Total Items</th>
+                            <th className="px-6 py-3">Total Amount</th>
+                            <th className="px-6 py-3">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                        {filteredOrders.map((order) => (
+                            <tr key={order._id} className="hover:bg-muted/50 transition-colors">
+                                <td className="px-6 py-4 font-medium">#{order._id.slice(-6).toUpperCase()}</td>
+                                <td className="px-6 py-4 text-muted-foreground">{new Date(order.date).toLocaleDateString()}</td>
+                                <td className="px-6 py-4">{order.products.length} Items</td>
+                                <td className="px-6 py-4 font-bold text-primary">${order.totalAmount}</td>
+                                <td className="px-6 py-4">
+                                    <Badge variant={order.status === 'Completed' ? 'success' : order.status === 'Pending' ? 'warning' : 'outline'}>
+                                        {order.status}
+                                    </Badge>
+                                </td>
+                            </tr>
+                        ))}
+                         {filteredOrders.length === 0 && (
+                             <tr><td colSpan="5" className="px-6 py-8 text-center text-muted-foreground">No orders found.</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </Card>
+      </div>
+    </ClientLayout>
+  );
 };
 
-export default CreateOrder;
+export default ClientOrders;

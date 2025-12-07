@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Table, Button, Alert, Modal, Form } from 'reactstrap';
+import api from './api.jsx';
 
 const OrderManager = () => {
     const [orders, setOrders] = useState([]);
@@ -12,7 +13,7 @@ const OrderManager = () => {
     useEffect(() => {
         const fetchOrders = async () => {
             try {
-                const response = await fetch('/api/orders/');
+                const response = await api.get('/orders/');
                 const data = await response.json();
                 setOrders(data);
             } catch (error) {
@@ -22,7 +23,7 @@ const OrderManager = () => {
 
         const fetchInventory = async () => {
             try {
-                const response = await fetch('/api/product/');
+                const response = await api.get('/product/');
                 const data = await response.json();
                 setInventory(data);
             } catch (error) {
@@ -64,17 +65,13 @@ const OrderManager = () => {
                 };
     
                 try {
-                    const response = await fetch('http://localhost:3001/api/invoices/', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(invoiceData),
-                    });
+                    const response = await api.post('/invoices/', JSON.stringify(invoiceData));
     
                     const invoice = await response.json();
                     
                     // Update inventory
                     await Promise.all(items.map(item => {
-                        return fetch(`/api/product/${item.productId}`, {
+                        return api.patch(`/product/${item.productId}`, {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ quantity: item.availableQuantity - item.quantity }),
@@ -82,7 +79,7 @@ const OrderManager = () => {
                     }));
     
                     // Update order status
-                    await fetch(`/api/orders/${selectedOrder._id}`, {
+                    await api.patch(`/orders/${selectedOrder._id}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ status: 'Fulfilled' }),

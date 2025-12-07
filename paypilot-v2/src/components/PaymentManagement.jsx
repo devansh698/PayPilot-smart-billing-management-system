@@ -1,105 +1,109 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { Container, Table, Button, Badge, Card, CardBody, Pagination, PaginationItem, PaginationLink } from 'reactstrap';
-import { FaMoneyBillWave, FaTrash } from 'react-icons/fa';
-import { toast } from 'react-toastify';
+import React, { useState, useEffect } from "react";
+import api from "../api";
+import { Search, CreditCard, DollarSign, Plus } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Card, CardContent } from "./ui/Card";
+import { Button } from "./ui/Button";
+import { Input } from "./ui/Input";
+import { Badge } from "./ui/Badge";
 
 const PaymentManagement = () => {
-    const [payments, setPayments] = useState([]);
-    const [currentPage, setCurrentPage] = useState(0);
-    const pageSize = 10;
+  const [payments, setPayments] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
-    useEffect(() => {
-        fetchPayments();
-    }, []);
+  useEffect(() => {
+    fetchPayments();
+  }, []);
 
-    const fetchPayments = async () => {
-        try {
-            const res = await axios.get('/api/payments/');
-            setPayments(res.data);
-        } catch (error) {
-            console.error("Error fetching payments", error);
-        }
-    };
+  const fetchPayments = async () => {
+    try {
+      const res = await api.get("/payment/");
+      setPayments(res.data);
+    } catch (error) {
+      console.error("Fetch error");
+    }
+  };
 
-    const handleDelete = async (id) => {
-        if (window.confirm('Delete this payment record?')) {
-            try {
-                await axios.delete(`/api/payments/${id}`);
-                setPayments(payments.filter(p => p._id !== id));
-                toast.success("Payment deleted");
-            } catch (error) {
-                toast.error("Failed to delete payment");
-            }
-        }
-    };
+  const filteredPayments = payments.filter(p => 
+    p.invoice?.invoiceNo?.includes(searchTerm) || 
+    p.amount.toString().includes(searchTerm)
+  );
 
-    // Pagination Logic
-    const pageCount = Math.ceil(payments.length / pageSize);
-    const displayedPayments = payments.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Payments</h1>
+          <p className="text-muted-foreground mt-1">View and manage payment history.</p>
+        </div>
+        <Link to="/create-new-payment">
+            <Button>
+                <Plus size={16} className="mr-2" /> Record Payment
+            </Button>
+        </Link>
+      </div>
 
-    return (
-        <Container fluid>
-            <h2 className="mb-4"><FaMoneyBillWave className="me-2"/> Payment History</h2>
-            
-            <Card className="shadow-sm border-0">
-                <CardBody>
-                    <Table hover responsive>
-                        <thead className="table-light">
-                            <tr>
-                                <th>Payment ID</th>
-                                <th>Invoice #</th>
-                                <th>Client</th>
-                                <th>Amount</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {displayedPayments.map((payment) => (
-                                <tr key={payment._id}>
-                                    <td><small className="text-muted">{payment.paymentId || payment._id.slice(-8)}</small></td>
-                                    <td>
-                                        <Badge color="secondary">{payment.invoiceId?.invoiceNo || 'N/A'}</Badge>
-                                    </td>
-                                    <td>
-                                        {payment.clientId ? `${payment.clientId.firstName} ${payment.clientId.lastName}` : 'Unknown Client'}
-                                    </td>
-                                    <td className="text-success fw-bold">Rs. {payment.amount.toFixed(2)}</td>
-                                    <td>
-                                        <Button size="sm" outline color="danger" onClick={() => handleDelete(payment._id)}>
-                                            <FaTrash />
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
-                            {payments.length === 0 && <tr><td colSpan="5" className="text-center">No payment records found.</td></tr>}
-                        </tbody>
-                    </Table>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+         <Card className="p-4 flex items-center gap-4">
+            <div className="p-3 bg-green-100 text-green-600 rounded-full"><DollarSign size={24} /></div>
+            <div>
+                <p className="text-sm text-muted-foreground">Total Received</p>
+                <p className="text-2xl font-bold">$--</p>
+            </div>
+         </Card>
+      </div>
 
-                    {/* Simple Pagination */}
-                    {pageCount > 1 && (
-                        <div className="d-flex justify-content-center mt-3">
-                            <Button 
-                                disabled={currentPage === 0} 
-                                onClick={() => setCurrentPage(c => c - 1)}
-                                className="me-2"
-                            >
-                                Previous
-                            </Button>
-                            <span className="align-self-center">Page {currentPage + 1} of {pageCount}</span>
-                            <Button 
-                                disabled={currentPage === pageCount - 1} 
-                                onClick={() => setCurrentPage(c => c + 1)}
-                                className="ms-2"
-                            >
-                                Next
-                            </Button>
-                        </div>
-                    )}
-                </CardBody>
-            </Card>
-        </Container>
-    );
+      <Card>
+        <div className="p-6 border-b border-border">
+             <div className="relative max-w-sm">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+                <Input
+                    placeholder="Search by Invoice # or Amount..."
+                    className="pl-9"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-muted/50 text-muted-foreground font-medium">
+              <tr>
+                <th className="px-6 py-3">Invoice #</th>
+                <th className="px-6 py-3">Date</th>
+                <th className="px-6 py-3">Method</th>
+                <th className="px-6 py-3">Amount</th>
+                <th className="px-6 py-3">Reference</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filteredPayments.map((payment) => (
+                <tr key={payment._id} className="hover:bg-muted/50 transition-colors">
+                  <td className="px-6 py-4 font-medium">{payment.invoice?.invoiceNo || "N/A"}</td>
+                  <td className="px-6 py-4 text-muted-foreground">{new Date(payment.date).toLocaleDateString()}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                        <CreditCard size={14} className="text-muted-foreground"/>
+                        {payment.method}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 font-medium text-green-600">${payment.amount}</td>
+                  <td className="px-6 py-4 text-muted-foreground font-mono text-xs">{payment.reference || "-"}</td>
+                </tr>
+              ))}
+               {filteredPayments.length === 0 && (
+                <tr>
+                    <td colSpan="5" className="px-6 py-8 text-center text-muted-foreground">
+                        No payments found.
+                    </td>
+                </tr>
+            )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
 };
 
 export default PaymentManagement;

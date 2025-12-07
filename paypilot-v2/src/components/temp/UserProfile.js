@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Form, FormGroup, Label, Input, Button, Alert } from 'reactstrap';
-
+import api from '../api';
 const UserProfile = () => {
     const [userData, setUserData] = useState({ name: '', email: '' });
     const [error, setError] = useState(null);
@@ -8,7 +8,7 @@ const UserProfile = () => {
     useEffect(() => {
         const fetchUserData = async () => {
             try {
-                const response = await fetch('/api/user/profile/');
+                const response = await api.get('/user/profile/');
                 const data = await response.json();
                 setUserData(data);
             } catch (error) {
@@ -26,7 +26,7 @@ const UserProfile = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            await fetch('/api/user/profile/', {
+            await api.put('/user/profile/', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(userData),

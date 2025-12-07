@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Table, Button, Alert } from 'reactstrap';
+import api from '../api';
 
 const UserManagement = () => {
     const [users, setUsers] = useState([]);
@@ -9,7 +10,7 @@ const UserManagement = () => {
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                const response = await fetch('/api/users/');
+                const response = await api.get('/users/');
                 const data = await response.json();
                 setUsers(data);
                 setLoading(false);
@@ -24,7 +25,7 @@ const UserManagement = () => {
     const handleDelete = async (id) => {
         if (window.confirm('Are you sure you want to delete this user?')) {
             try {
-                await fetch(`/api/users/${id}`, { method: 'DELETE' });
+                await api.delete(`/users/${id}`, { method: 'DELETE' });
                 setUsers(users.filter(user => user._id !== id));
             } catch (error) {
                 setError('Failed to delete user');

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:3001/api', // Change this to your actual API endpoint
+    baseURL: 'http://localhost:3000/api', // Change this to your actual API endpoint
 });
 
 // Add request interceptor to include the token in headers

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Table, Button, Alert } from 'reactstrap';
-
+import api from '../api';   
 const InvoiceManagement = () => {
  const [invoices, setInvoices] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -9,7 +9,7 @@ const InvoiceManagement = () => {
     useEffect(() => {
         const fetchInvoices = async () => {
             try {
-                const response = await fetch('/api/invoices/');
+                const response = await api.get('/invoices/');
                 const data = await response.json();
                 setInvoices(data);
                 setLoading(false);
@@ -24,7 +24,7 @@ const InvoiceManagement = () => {
     const handleDelete = async (id) => {
         if (window.confirm('Are you sure you want to delete this invoice?')) {
             try {
-                await fetch(`/api/invoices/${id}`, { method: 'DELETE' });
+                await api.delete(`/invoices/${id}`, { method: 'DELETE' });
                 setInvoices(invoices.filter(invoice => invoice._id !== id));
             } catch (error) {
                 setError('Failed to delete invoice');

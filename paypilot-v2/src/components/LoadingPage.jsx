@@ -1,23 +1,15 @@
 import React from 'react';
-import Lottie from "lottie-react";
-import animationData from "./animation/Animation - loading.json";
-import './LoadingPage.css'; // Import the CSS file
-
-const defaultOptions = {
-  loop: true,
-  autoplay: true, 
-  animationData: animationData,
-  rendererSettings: {
-    preserveAspectRatio: 'xMidYMid slice'
-  }
-};
+import { Loader2 } from 'lucide-react';
 
 const LoadingPage = () => {
-  return (
-    <div className="loading-container"> {/* Use the CSS class for styling */}
-      <Lottie animationData={animationData} loop="true" autoPlay="true"  height={400} width={400} />
-    </div>
-  );
+    return (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-4">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="text-lg font-medium text-muted-foreground animate-pulse">Loading PayPilot...</p>
+            </div>
+        </div>
+    );
 };
 
 export default LoadingPage;

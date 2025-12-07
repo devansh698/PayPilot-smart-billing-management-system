@@ -4,6 +4,7 @@ import { Container, Table, Button, Card, CardBody, Badge } from 'reactstrap';
 import { FaEdit, FaTrash, FaBoxOpen } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { Link } from 'react-router-dom';
+import api from './api.jsx';
 
 const ProductList = () => {
     const [products, setProducts] = useState([]);
@@ -14,7 +15,7 @@ const ProductList = () => {
 
     const fetchProducts = async () => {
         try {
-            const res = await axios.get('/api/product/');
+            const res = await api.get('/product/');
             setProducts(res.data);
         } catch (error) {
             console.error(error);
@@ -24,7 +25,7 @@ const ProductList = () => {
     const handleDelete = async (id) => {
         if(window.confirm("Delete this product?")) {
             try {
-                await axios.delete(`/api/product/${id}`);
+                await api.delete(`/product/${id}`);
                 toast.success("Product deleted");
                 setProducts(products.filter(p => p._id !== id));
             } catch (err) {

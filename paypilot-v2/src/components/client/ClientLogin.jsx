@@ -1,115 +1,83 @@
-// src/components/client/ClientLogin.jsx
-import React, { useState } from 'react';
-import { Container, Form, FormGroup, Label, Input, Button, Alert } from 'reactstrap';
-import axios from 'axios';
-import Lottie from 'lottie-react';
-import animationData from '../animation/Animation - 1733831017954.json';
-import { FiMail, FiLock, FiArrowRight } from 'react-icons/fi';
-import { toast, ToastContainer } from 'react-toastify'; 
-import './ClientLogin.css';
+import React, { useState } from "react";
+import api from "../../api";
+import { useNavigate, Link } from "react-router-dom";
+import { toast } from "react-toastify";
+import { LogIn, Mail, Lock, ArrowRight, UserCheck } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
+import { Label } from "../ui/Label";
 
 const ClientLogin = () => {
-  const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
-  const [isOtpSent, setIsOtpSent] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [credentials, setCredentials] = useState({ email: "", password: "" });
+  const navigate = useNavigate();
 
-  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    if (!isValidEmail(email)) return toast.error('Please enter a valid email address');
-
-    setLoading(true);
-    try {
-      const response = await axios.post('/api/auth/client/send-otp', { email });
-      if (response.data.success) {
-        setIsOtpSent(true);
-        toast.success('OTP sent successfully!');
-      }
-    } catch (error) {
-      // Backend Error Handling
-      const msg = error.response?.data?.message || 'Failed to send OTP.';
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
+  const handleChange = (e) => {
+    setCredentials({ ...credentials, [e.target.name]: e.target.value });
   };
 
-  const handleVerifyOtp = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (otp.length < 6) return toast.error('Please enter a valid 6-digit OTP');
-
-    setLoading(true);
     try {
-      const response = await axios.post('/api/auth/client/verify-otp', { email, otp });
-      if (response.data.success) {
-        localStorage.setItem('token', response.data.token);
-        toast.success('Login Successful! Redirecting...');
-        setTimeout(() => window.location.href = '/client-dashboard', 1500);
-      }
+      const res = await api.post("/auth/client/login", credentials);
+      localStorage.setItem("clientToken", res.data.token);
+      toast.success("Welcome to the Client Portal");
+      navigate("/client-dashboard");
     } catch (error) {
-      const msg = error.response?.data?.message || 'Invalid OTP.';
-      toast.error(msg);
-    } finally {
-      setLoading(false);
+      toast.error(error.response?.data?.message || "Login failed");
     }
   };
 
   return (
-    <div className="login-container">
-      <ToastContainer position="top-center" />
-      <div className="login-content">
-        <div className="login-form-container">
-          <div className="login-header">
-            <h1>Client Portal</h1>
-            <p>Secure login for billing & orders</p>
-          </div>
-          
-          {!isOtpSent ? (
-            <Form onSubmit={handleLogin} className="login-form">
-              <FormGroup>
-                <Label>Email Address</Label>
-                <Input
-                  type="email"
-                  placeholder="name@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                />
-              </FormGroup>
-              <Button type="submit" color="primary" className="w-100" disabled={loading}>
-                {loading ? 'Sending OTP...' : 'Send OTP'} <FiArrowRight />
-              </Button>
-            </Form>
-          ) : (
-            <Form onSubmit={handleVerifyOtp} className="login-form">
-               <Alert color="info">OTP sent to {email}</Alert>
-              <FormGroup>
-                <Label>Enter OTP</Label>
-                <Input
-                  type="text"
-                  placeholder="123456"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  maxLength="6"
-                  className="text-center letter-spacing-2"
-                  disabled={loading}
-                />
-              </FormGroup>
-              <Button type="submit" color="success" className="w-100" disabled={loading}>
-                {loading ? 'Verifying...' : 'Verify & Login'}
-              </Button>
-              <div className="text-center mt-3">
-                  <small className="text-muted" style={{cursor:'pointer'}} onClick={() => setIsOtpSent(false)}>Wrong Email? Go Back</small>
-              </div>
-            </Form>
-          )}
-        </div>
-        <div className="login-graphic d-none d-md-block">
-          <Lottie animationData={animationData} loop={true} />
-        </div>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-muted/20 p-4">
+      <Card className="w-full max-w-md shadow-lg border-border">
+        <CardHeader className="text-center space-y-2">
+            <div className="mx-auto w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white mb-2">
+                <UserCheck size={24} />
+            </div>
+            <CardTitle className="text-2xl font-bold">Client Portal</CardTitle>
+            <p className="text-sm text-muted-foreground">Sign in to view invoices and orders</p>
+        </CardHeader>
+        <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <div className="relative">
+                        <Mail className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
+                        <Input
+                            id="email" name="email" type="email"
+                            className="pl-9"
+                            placeholder="client@example.com"
+                            value={credentials.email} onChange={handleChange}
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <div className="relative">
+                        <Lock className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
+                        <Input
+                            id="password" name="password" type="password"
+                            className="pl-9"
+                            placeholder="••••••••"
+                            value={credentials.password} onChange={handleChange}
+                            required
+                        />
+                    </div>
+                </div>
+
+                <Button type="submit" className="w-full" size="lg">
+                    Access Portal <ArrowRight size={16} className="ml-2" />
+                </Button>
+
+                <div className="text-center text-sm text-muted-foreground mt-4">
+                    Not a client yet? <Link to="/" className="text-primary hover:underline">Contact Support</Link>
+                </div>
+            </form>
+        </CardContent>
+      </Card>
     </div>
   );
 };
