@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Label } from "./ui/Label";
+import SearchableSelect from "./ui/SearchableSelect";
 
 const CreateInvoice = () => {
   const navigate = useNavigate();
   
-  // State
   const [invoiceData, setInvoiceData] = useState({
     invoiceNo: "Loading...",
     clientId: "",
@@ -22,21 +22,17 @@ const CreateInvoice = () => {
 
   const [clients, setClients] = useState([]);
   const [products, setProducts] = useState([]);
-  
-  // Line Items
   const [items, setItems] = useState([]);
   const [currentItem, setCurrentItem] = useState({
     productId: "", name: "", quantity: 1, rate: 0, amount: 0
   });
 
-  // Financials
   const [totals, setTotals] = useState({
     subtotal: 0, tax: 0, discount: 0, totalAmount: 0
   });
   const [taxRate, setTaxRate] = useState(18);
   const [discountRate, setDiscountRate] = useState(0);
 
-  // Load Data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -56,9 +52,12 @@ const CreateInvoice = () => {
     fetchData();
   }, []);
 
-  // Logic
-  const handleProductSelect = (e) => {
-    const product = products.find(p => p._id === e.target.value);
+  // Format options for Select2
+  const clientOptions = clients.map(c => ({ value: c._id, label: `${c.firstName} ${c.lastName}` }));
+  const productOptions = products.map(p => ({ value: p._id, label: `${p.name} - $${p.price}` }));
+
+  const handleProductSelect = (val) => {
+    const product = products.find(p => p._id === val);
     if (product) {
       setCurrentItem({
         productId: product._id,
@@ -97,14 +96,15 @@ const CreateInvoice = () => {
   const handleSubmit = async () => {
     if (!invoiceData.clientId || items.length === 0) return toast.error("Please fill required fields");
 
+    // Ensure backend expects 'client' or 'clientId'. Usually it's 'client' for reference.
+    // Check Invoice.js model: client: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' }
     const payload = {
       ...invoiceData,
+      client: invoiceData.clientId, 
       products: items.map(i => ({ product: i.productId, quantity: i.quantity, rate: i.rate, amount: i.amount })),
       subtotal: totals.subtotal,
       tax: totals.tax,
       totalAmount: totals.totalAmount,
-      notes: invoiceData.notes,
-      terms: invoiceData.terms
     };
 
     try {
@@ -118,7 +118,6 @@ const CreateInvoice = () => {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
@@ -132,13 +131,9 @@ const CreateInvoice = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* Left Column: Invoice Info */}
         <div className="md:col-span-1 space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle>Invoice Details</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Invoice Details</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>Invoice Number</Label>
@@ -147,53 +142,39 @@ const CreateInvoice = () => {
                   {invoiceData.invoiceNo}
                 </div>
               </div>
-
               <div className="space-y-2">
                 <Label>Date</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
-                  <Input 
-                    value={invoiceData.date} 
-                    disabled 
-                    className="pl-9 bg-muted/50"
-                  />
+                  <Input value={invoiceData.date} disabled className="pl-9 bg-muted/50"/>
                 </div>
               </div>
-
               <div className="space-y-2">
-                <Label>Client</Label>
-                <select
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                <SearchableSelect 
+                    label="Client"
+                    options={clientOptions}
                     value={invoiceData.clientId}
-                    onChange={(e) => setInvoiceData({ ...invoiceData, clientId: e.target.value })}
-                >
-                    <option value="">Select a Client</option>
-                    {clients.map(c => (
-                        <option key={c._id} value={c._id}>{c.firstName} {c.lastName}</option>
-                    ))}
-                </select>
+                    onChange={(val) => setInvoiceData({ ...invoiceData, clientId: val })}
+                    placeholder="Search Client..."
+                />
               </div>
             </CardContent>
           </Card>
-
           <Card>
-            <CardHeader>
-                <CardTitle>Terms & Notes</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle>Terms & Notes</CardTitle></CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
                     <Label>Notes</Label>
                     <textarea 
-                        className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring min-h-[80px]"
+                        className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm min-h-[80px]"
                         value={invoiceData.notes}
                         onChange={e => setInvoiceData({...invoiceData, notes: e.target.value})}
-                        placeholder="Add notes..."
                     />
                 </div>
                 <div className="space-y-2">
                     <Label>Terms</Label>
                     <textarea 
-                        className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring min-h-[80px]"
+                        className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm min-h-[80px]"
                         value={invoiceData.terms}
                         onChange={e => setInvoiceData({...invoiceData, terms: e.target.value})}
                     />
@@ -202,7 +183,6 @@ const CreateInvoice = () => {
           </Card>
         </div>
 
-        {/* Right Column: Line Items */}
         <div className="md:col-span-2 space-y-6">
           <Card className="h-full flex flex-col">
             <CardHeader className="flex flex-row items-center justify-between">
@@ -210,18 +190,15 @@ const CreateInvoice = () => {
                 <span className="text-sm text-muted-foreground">{items.length} items added</span>
             </CardHeader>
             <CardContent className="flex-1">
-                {/* Item Adder Form */}
-                <div className="flex gap-3 mb-6 p-4 bg-muted/30 rounded-lg border border-border">
+                <div className="flex gap-3 mb-6 p-4 bg-muted/30 rounded-lg border border-border items-end">
                     <div className="flex-1">
-                        <Label className="text-xs mb-1 block">Product</Label>
-                        <select
-                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                            value={currentItem.productId} 
+                        <SearchableSelect 
+                            label="Product"
+                            options={productOptions}
+                            value={currentItem.productId}
                             onChange={handleProductSelect}
-                        >
-                             <option value="">Select Product</option>
-                             {products.map(p => <option key={p._id} value={p._id}>{p.name} (${p.price})</option>)}
-                        </select>
+                            placeholder="Select Product..."
+                        />
                     </div>
                     <div className="w-24">
                          <Label className="text-xs mb-1 block">Qty</Label>
@@ -234,14 +211,11 @@ const CreateInvoice = () => {
                             }}
                          />
                     </div>
-                    <div className="w-24 pt-6">
-                         <Button onClick={addItem} className="w-full">
-                            <Plus size={16} />
-                         </Button>
+                    <div className="w-24">
+                        <Button onClick={addItem} className="w-full mb-[2px]"><Plus size={16} /></Button>
                     </div>
                 </div>
 
-                {/* Items Table */}
                 <div className="rounded-md border border-border overflow-hidden mb-6">
                     <table className="w-full text-sm">
                         <thead className="bg-muted/50">
@@ -267,18 +241,10 @@ const CreateInvoice = () => {
                                     </td>
                                 </tr>
                             ))}
-                            {items.length === 0 && (
-                                <tr>
-                                    <td colSpan="5" className="px-4 py-8 text-center text-muted-foreground">
-                                        No items added yet.
-                                    </td>
-                                </tr>
-                            )}
                         </tbody>
                     </table>
                 </div>
 
-                {/* Totals Section */}
                 <div className="flex justify-end border-t border-border pt-6">
                     <div className="w-full md:w-1/2 space-y-3">
                         <div className="flex justify-between items-center text-sm">
@@ -287,21 +253,11 @@ const CreateInvoice = () => {
                         </div>
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">Discount (%)</span>
-                            <Input 
-                                type="number" 
-                                className="w-20 h-7 text-right" 
-                                value={discountRate} 
-                                onChange={e => setDiscountRate(Number(e.target.value))}
-                            />
+                            <Input type="number" className="w-20 h-7 text-right" value={discountRate} onChange={e => setDiscountRate(Number(e.target.value))}/>
                         </div>
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">Tax Rate (%)</span>
-                            <Input 
-                                type="number" 
-                                className="w-20 h-7 text-right" 
-                                value={taxRate} 
-                                onChange={e => setTaxRate(Number(e.target.value))}
-                            />
+                            <Input type="number" className="w-20 h-7 text-right" value={taxRate} onChange={e => setTaxRate(Number(e.target.value))}/>
                         </div>
                         <div className="border-t border-border pt-3 flex justify-between items-center">
                             <span className="text-lg font-bold">Total</span>
@@ -309,7 +265,6 @@ const CreateInvoice = () => {
                         </div>
                     </div>
                 </div>
-
             </CardContent>
           </Card>
         </div>

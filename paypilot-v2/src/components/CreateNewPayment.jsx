@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Label } from "./ui/Label";
+import SearchableSelect from "./ui/SearchableSelect";
 
 const CreateNewPayment = () => {
   const [payment, setPayment] = useState({
@@ -20,18 +21,37 @@ const CreateNewPayment = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Fetch unpaid invoices to populate dropdown
-    api.get("/invoices?status=Pending").then(res => setInvoices(res.data)).catch(console.error);
+    // Fetch unpaid invoices
+    api.get("/invoices?status=Pending").then(res => {
+        // Map to format required by SearchableSelect if needed, or keep raw for logic
+        setInvoices(res.data);
+    }).catch(console.error);
   }, []);
+
+  const invoiceOptions = invoices.map(inv => ({
+      value: inv._id,
+      label: `#${inv.invoiceNo} - ${inv.client?.firstName || 'Client'} ($${inv.totalAmount})`
+  }));
+
+  const handleInvoiceSelect = (val) => {
+      const selectedInv = invoices.find(inv => inv._id === val);
+      setPayment({ 
+          ...payment, 
+          invoiceId: val,
+          amount: selectedInv ? selectedInv.totalAmount : "" // Auto-fill amount
+      });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!payment.invoiceId) return toast.error("Please select an invoice");
+    
     try {
-      await api.post("/payment/add", payment);
+      await api.post("/payment/", payment); // Standard REST: POST / to create
       toast.success("Payment recorded successfully");
       navigate("/payment-manager");
     } catch (error) {
-      toast.error("Failed to record payment");
+      toast.error(error.response?.data?.message || "Failed to record payment");
     }
   };
 
@@ -54,20 +74,13 @@ const CreateNewPayment = () => {
         <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                    <Label>Select Invoice</Label>
-                    <select
-                        className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    <SearchableSelect 
+                        label="Select Invoice"
+                        placeholder="Search invoice # or client..."
+                        options={invoiceOptions}
                         value={payment.invoiceId}
-                        onChange={(e) => setPayment({ ...payment, invoiceId: e.target.value })}
-                        required
-                    >
-                        <option value="">-- Choose Invoice --</option>
-                        {invoices.map(inv => (
-                            <option key={inv._id} value={inv._id}>
-                                #{inv.invoiceNo} - {inv.client?.firstName} (${inv.totalAmount})
-                            </option>
-                        ))}
-                    </select>
+                        onChange={handleInvoiceSelect}
+                    />
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">

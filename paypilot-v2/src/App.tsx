@@ -1,64 +1,53 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import "bootstrap/dist/css/bootstrap.min.css";
-import { ThemeProvider } from "./components/ThemeContext.jsx";
+import { ThemeProvider } from "./components/ThemeContext";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-// Layout
-import MainLayout from "./components/MainLayout.jsx"; 
+// CSS
+import "./index.css"; // Tailwind directives must be here
 
-// Common Components
-import LoadingPage from "./components/LoadingPage.jsx";
-import NotFoundPage from "./components/NotFoundPage.jsx";
+// Layouts
+import MainLayout from "./components/MainLayout"; 
 
-// Main App Components
-import Register from "./components/Register.jsx";
-import LoginPage from "./components/LoginPage.jsx";
-import ProfilePage from "./components/ProfilePage.jsx";
-import Dashboard from "./components/Dashboard.jsx";
-import AddProduct from "./components/AddProduct.jsx";
-import ClientList from "./components/ClientList.jsx";
-import CreateInvoice from "./components/CreateInvoice.jsx";
-import CreateNewPayment from "./components/CreateNewPayment.jsx";
-import EmployeeManager from "./components/EmployeeManager.jsx";
-import InventoryManager from "./components/InventoryManager.jsx";
-import ReportGenerator from "./components/ReportGenerator.jsx";
-import InvoiceList from "./components/InvoiceList.jsx";
-import AcceptOrder from "./components/AcceptOrder.jsx";
-import PaymentManagement from "./components/PaymentManagement.jsx";
-import ProductManagement from "./components/ProductList.jsx";
-import PrivateRoute from "./components/PrivateRoute.jsx";
+// Public / Auth
+import Landing from "./components/home";
+import LoginPage from "./components/LoginPage";
+import Register from "./components/Register";
+import NotFoundPage from "./components/NotFoundPage";
+import LoadingPage from "./components/LoadingPage";
 
-// Client Components
-import ClientLogin from "./components/client/ClientLogin.jsx";
-import ClientPortal from "./components/client/ClientPortal.jsx";
-import ClientDashboard from "./components/client/ClientDashboard.jsx";
-import ClientProfile from "./components/client/ClientProfile.jsx";
-import ClientOrders from "./components/client/ClientOrders.jsx";
-import ClientPayments from "./components/client/ClientPayments.jsx";
-import CreateOrder from "./components/client/CreateOrder.jsx";
-import Landing from "./components/home.jsx";
+// Admin Components
+import Dashboard from "./components/Dashboard";
+import InvoiceList from "./components/InvoiceList";
+import CreateInvoice from "./components/CreateInvoice";
+import ClientList from "./components/ClientList";
+import ProductList from "./components/ProductList";
+import AddProduct from "./components/AddProduct";
+import ReportGenerator from "./components/ReportGenerator";
+import EmployeeManager from "./components/EmployeeManager";
+import InventoryManager from "./components/InventoryManager";
+import AcceptOrder from "./components/AcceptOrder";
+import CreateNewPayment from "./components/CreateNewPayment";
+import PaymentManagement from "./components/PaymentManagement";
+import ProfilePage from "./components/ProfilePage";
+import PrivateRoute from "./components/PrivateRoute";
 
-// Helpers
-// import { Buffer } from "buffer";
-// window.Buffer = Buffer;
-
-// Axios Interceptor
-axios.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+// Client Portal Components
+import ClientLogin from "./components/client/ClientLogin";
+import ClientDashboard from "./components/client/ClientDashboard";
+import ClientOrders from "./components/client/ClientOrders";
+import CreateOrder from "./components/client/CreateOrder";
+import ClientPayments from "./components/client/ClientPayments";
+import ClientProfile from "./components/client/ClientProfile";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    setTimeout(() => setLoading(false), 1500);
-    document.title = "PayPilot";
+    // Simulate initial load
+    setTimeout(() => setLoading(false), 1000);
   }, []);
 
   if (loading) return <LoadingPage />;
@@ -68,71 +57,48 @@ const App = () => {
       <Router>
         <AuthProvider>
           <Routes>
-            {/* Public Routes */}
+            {/* --- Public Routes --- */}
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<Register />} />
+            
+            {/* --- Client Portal Routes --- */}
             <Route path="/client-login" element={<ClientLogin />} />
-
-            {/* Client Portal Routes (Keep existing Client Layout or wrap similarly) */}
+            {/* Wrap client routes in a check or separate layout if needed */}
             <Route path="/client-dashboard" element={<ClientDashboard />} />
             <Route path="/client-orders" element={<ClientOrders />} />
-            {/* Add other client routes here... */}
+            <Route path="/create-order" element={<CreateOrder />} />
+            <Route path="/client-payments" element={<ClientPayments />} />
+            <Route path="/client-profile" element={<ClientProfile />} />
 
-            {/* Admin Routes Wrapped in MainLayout */}
-            <Route element={<MainLayout><Dashboard /></MainLayout>} path="/dashboard" />
+            {/* --- Admin Routes (Protected) --- */}
+            <Route path="/dashboard" element={<MainLayout><PrivateRoute element={<Dashboard />} requiredRole="admin" /></MainLayout>} />
             
-            <Route
-              path="/invoicelist"
-              element={<MainLayout><PrivateRoute element={<InvoiceList />} requiredRole="admin" /></MainLayout>}
-            />
-            <Route
-              path="/create-invoice"
-              element={<MainLayout><PrivateRoute element={<CreateInvoice />} requiredRole="admin" /></MainLayout>}
-            />
-            <Route
-              path="/client-list"
-              element={<MainLayout><PrivateRoute element={<ClientList />} requiredRole="admin" /></MainLayout>}
-            />
-            <Route
-              path="/product-management"
-              element={<MainLayout><PrivateRoute element={<ProductManagement />} requiredRole="admin" /></MainLayout>}
-            />
-            <Route
-              path="/add-product"
-              element={<MainLayout><PrivateRoute element={<AddProduct />} requiredRole="admin" /></MainLayout>}
-            />
-            <Route
-              path="/report-generator"
-              element={<MainLayout><PrivateRoute element={<ReportGenerator />} requiredRole="admin" /></MainLayout>}
-            />
-            <Route
-              path="/employee-manager"
-              element={<MainLayout><PrivateRoute element={<EmployeeManager />} requiredRole="admin" /></MainLayout>}
-            />
-            <Route
-              path="/inventory-manager"
-              element={<MainLayout><PrivateRoute element={<InventoryManager />} requiredRole="admin" /></MainLayout>}
-            />
-            <Route
-              path="/AcceptOrder"
-              element={<MainLayout><PrivateRoute element={<AcceptOrder />} requiredRole="admin" /></MainLayout>}
-            />
-            <Route
-              path="/create-new-payment"
-              element={<MainLayout><PrivateRoute element={<CreateNewPayment />} requiredRole="admin" /></MainLayout>}
-            />
-            <Route
-              path="/profile"
-              element={<MainLayout><PrivateRoute element={<ProfilePage />} requiredRole="admin" /></MainLayout>}
-            />
-            <Route
-              path="/payment-manager"
-              element={<MainLayout><PrivateRoute element={<PaymentManagement />} requiredRole="admin" /></MainLayout>}
-            />
+            <Route path="/invoicelist" element={<MainLayout><PrivateRoute element={<InvoiceList />} requiredRole="admin" /></MainLayout>} />
+            <Route path="/create-invoice" element={<MainLayout><PrivateRoute element={<CreateInvoice />} requiredRole="admin" /></MainLayout>} />
+            
+            <Route path="/client-list" element={<MainLayout><PrivateRoute element={<ClientList />} requiredRole="admin" /></MainLayout>} />
+            <Route path="/add-client" element={<MainLayout><PrivateRoute element={<ClientList />} requiredRole="admin" /></MainLayout>} /> {/* Reusing list component as it has Modal */}
 
+            <Route path="/product-management" element={<MainLayout><PrivateRoute element={<ProductList />} requiredRole="admin" /></MainLayout>} />
+            <Route path="/add-product" element={<MainLayout><PrivateRoute element={<AddProduct />} requiredRole="admin" /></MainLayout>} />
+            
+            <Route path="/inventory-manager" element={<MainLayout><PrivateRoute element={<InventoryManager />} requiredRole="admin" /></MainLayout>} />
+            
+            <Route path="/AcceptOrder" element={<MainLayout><PrivateRoute element={<AcceptOrder />} requiredRole="admin" /></MainLayout>} />
+            
+            <Route path="/payment-manager" element={<MainLayout><PrivateRoute element={<PaymentManagement />} requiredRole="admin" /></MainLayout>} />
+            <Route path="/create-new-payment" element={<MainLayout><PrivateRoute element={<CreateNewPayment />} requiredRole="admin" /></MainLayout>} />
+            
+            <Route path="/report-generator" element={<MainLayout><PrivateRoute element={<ReportGenerator />} requiredRole="admin" /></MainLayout>} />
+            <Route path="/employee-manager" element={<MainLayout><PrivateRoute element={<EmployeeManager />} requiredRole="admin" /></MainLayout>} />
+            
+            <Route path="/profile" element={<MainLayout><PrivateRoute element={<ProfilePage />} requiredRole="admin" /></MainLayout>} />
+
+            {/* Fallback */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
+          <ToastContainer position="top-right" autoClose={3000} />
         </AuthProvider>
       </Router>
     </ThemeProvider>

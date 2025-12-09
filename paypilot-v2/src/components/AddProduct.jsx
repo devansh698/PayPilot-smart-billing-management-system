@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { ArrowLeft, Save, Package, DollarSign, Tag, Layers } from "lucide-react";
+import { ArrowLeft, Save, Package, DollarSign, Layers } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Label } from "./ui/Label";
+import SearchableSelect from "./ui/SearchableSelect";
 
 const AddProduct = () => {
   const [product, setProduct] = useState({
@@ -18,6 +19,14 @@ const AddProduct = () => {
   });
   const navigate = useNavigate();
 
+  const categories = [
+      { value: "Service", label: "Service" },
+      { value: "Electronics", label: "Electronics" },
+      { value: "Software", label: "Software" },
+      { value: "Consulting", label: "Consulting" },
+      { value: "Other", label: "Other" }
+  ];
+
   const handleChange = (e) => {
     setProduct({ ...product, [e.target.name]: e.target.value });
   };
@@ -25,11 +34,13 @@ const AddProduct = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.post("/product/add", product);
+      // Changed to /product/ based on REST conventions
+      await api.post("/product/", product);
       toast.success("Product added successfully!");
       navigate("/product-management");
     } catch (error) {
-      toast.error("Failed to add product");
+      console.error(error);
+      toast.error(error.response?.data?.message || "Failed to add product");
     }
   };
 
@@ -96,21 +107,13 @@ const AddProduct = () => {
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
-                    <div className="relative">
-                        <Tag className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
-                        <select
-                            id="category" name="category"
-                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pl-9 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                            value={product.category} onChange={handleChange}
-                        >
-                            <option value="">Select Category</option>
-                            <option value="Service">Service</option>
-                            <option value="Electronics">Electronics</option>
-                            <option value="Software">Software</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
+                    <SearchableSelect 
+                        label="Category"
+                        options={categories}
+                        value={product.category}
+                        onChange={(val) => setProduct({...product, category: val})}
+                        placeholder="Select Category..."
+                    />
                 </div>
 
                 <div className="space-y-2">

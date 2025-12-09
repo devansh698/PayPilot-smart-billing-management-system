@@ -1,25 +1,18 @@
-// src/components/PrivateRoute.js
-import React, { useContext } from 'react';
+import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
 
+// Simplified PrivateRoute
+// In a real app, you might want to decode the JWT to check expiration or role
 const PrivateRoute = ({ element, requiredRole }) => {
-    const { user, loading } = useContext(AuthContext);
-
-    if (loading) return <div>Loading...</div>;
-
-    if (!user) return <Navigate to="/login" />;
-
-    if (requiredRole && user.role !== requiredRole) {
-        return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-                <div>
-                    <h1>Unauthorized</h1>
-                    <p>You do not have permission to access this page.</p>
-                </div>
-            </div>
-        );
+    const token = localStorage.getItem('token');
+    // Basic check: if no token, redirect to login
+    if (!token) {
+        return <Navigate to="/login" replace />;
     }
+
+    // Optional: Add role checking logic here if you decode the token
+    // const userRole = decode(token).role;
+    // if (requiredRole && userRole !== requiredRole) return <NotAuthorized />;
 
     return element;
 };

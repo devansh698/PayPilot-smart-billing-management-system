@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import api from "../api";
 import { Search, AlertTriangle, ArrowUpRight, ArrowDownRight, RefreshCw } from "lucide-react";
 import { toast } from "react-toastify";
-import { Card, CardContent } from "./ui/Card";
+import { Card } from "./ui/Card";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
 import { Badge } from "./ui/Badge";
@@ -20,17 +20,24 @@ const InventoryManager = () => {
       const res = await api.get("/product/");
       setStockData(res.data);
     } catch (error) {
-      console.error("Failed to fetch stock");
+      toast.error("Failed to fetch stock");
     }
   };
 
   const updateStock = async (id, newStock) => {
+    if (newStock < 0) return;
     try {
+        // Using PUT endpoint from Product.js router
         await api.put(`/product/${id}`, { stock: newStock });
+        
+        // Optimistic update
+        setStockData(stockData.map(item => 
+            item._id === id ? { ...item, stock: newStock } : item
+        ));
         toast.success("Stock updated");
-        fetchStock();
     } catch (err) {
         toast.error("Update failed");
+        fetchStock(); // Revert on fail
     }
   };
 
@@ -88,7 +95,7 @@ const InventoryManager = () => {
                 <th className="px-6 py-3">Product Name</th>
                 <th className="px-6 py-3">Current Stock</th>
                 <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3 text-right">Quick Adjust</th>
+                <th className="px-6 py-3 text-right">Adjust Stock</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -96,29 +103,37 @@ const InventoryManager = () => {
                 <tr key={item._id} className="hover:bg-muted/50 transition-colors">
                   <td className="px-6 py-4 font-medium">{item.name}</td>
                   <td className="px-6 py-4">
-                    <span className={`font-bold ${item.stock < 10 ? 'text-red-600' : 'text-foreground'}`}>
-                        {item.stock}
-                    </span>
+                    <div className="flex items-center gap-3">
+                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateStock(item._id, item.stock - 1)}>
+                            <ArrowDownRight size={12} />
+                        </Button>
+                        <span className={`font-bold w-8 text-center ${item.stock < 10 ? 'text-red-600' : ''}`}>
+                            {item.stock}
+                        </span>
+                        <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateStock(item._id, item.stock + 1)}>
+                            <ArrowUpRight size={12} />
+                        </Button>
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     {item.stock === 0 ? (
                         <Badge variant="destructive">Out of Stock</Badge>
                     ) : item.stock < 10 ? (
-                        <Badge variant="warning" className="flex w-fit items-center gap-1">
-                            <AlertTriangle size={12} /> Low Stock
-                        </Badge>
+                        <Badge variant="warning">Low Stock</Badge>
                     ) : (
                         <Badge variant="success">In Stock</Badge>
                     )}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateStock(item._id, item.stock - 1)}>
-                            <ArrowDownRight size={14} />
-                        </Button>
-                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateStock(item._id, item.stock + 1)}>
-                            <ArrowUpRight size={14} />
-                        </Button>
+                    <div className="flex justify-end items-center gap-2">
+                       <Input 
+                            type="number" 
+                            className="w-20 h-8" 
+                            placeholder="Set"
+                            onKeyDown={(e) => {
+                                if(e.key === 'Enter') updateStock(item._id, parseInt(e.currentTarget.value))
+                            }}
+                        />
                     </div>
                   </td>
                 </tr>

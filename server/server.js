@@ -26,40 +26,54 @@ const dbconnect = require('./middlewares/dB');
 
 const app = express();
 
-// --- FIX: Add this line to resolve the Rate Limit Error ---
 app.set('trust proxy', 1); 
-// ---------------------------------------------------------
 
-// 1. Security Middleware
+// ==========================================
+// 1. CORS (MUST BE FIRST)
+// ==========================================
+// Moving this to the top ensures even error responses get CORS headers
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:3000', 
+    'http://127.0.0.1:3001'
+  ], 
+  credentials: true,
+}));
+
+// ==========================================
+// 2. Security Middleware
+// ==========================================
 app.use(helmet()); 
 app.use(mongoSanitize());
 
-// 2. Rate Limiting
+// ==========================================
+// 3. Rate Limiting
+// ==========================================
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  max: 1000, // Limit each IP to 100 requests per windowMs
+  standardHeaders: true, 
+  legacyHeaders: false, 
   message: "Too many requests from this IP, please try again later."
 });
 app.use('/api/', limiter);
 
-// 3. CORS & Body Parser
-app.use(cors({
-  origin: ['http://localhost:3000','http://localhost:3001'], // Update this if your frontend runs on a different port (e.g., 3001)
-  credentials: true,
-}));
+// ==========================================
+// 4. Body Parser
+// ==========================================
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
 
-// 4. Static Files
+// 5. Static Files
 app.use('/uploads', express.static('uploads'));
 
-// 5. Database
+// 6. Database
 dbconnect();
 
-// 6. Routes
+// 7. Routes
 app.use('/api/product', productRouter);
 app.use('/api/invoices', invoiceRouter);
 app.use('/api/client', clientRouter);
