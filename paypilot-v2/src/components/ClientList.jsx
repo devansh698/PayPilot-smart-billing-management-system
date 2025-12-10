@@ -1,100 +1,96 @@
 import React, { useState, useEffect } from "react";
 import api from "../api";
-import { Search, Plus, Edit, Trash2, Phone, Mail, Download, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, Plus, Edit, Trash2, Phone, Mail } from "lucide-react";
 import { toast } from 'react-toastify';
-import { Card } from "./ui/Card";
-import { Button } from "./ui/Button";
-import { Input } from "./ui/Input";
-import { Badge } from "./ui/Badge";
-import { Label } from "./ui/Label";
-import ConfirmationModal from "./ui/ConfirmationModal";
+import { Card, CardContent } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Badge } from "./ui/badge";
 
 const ClientList = () => {
   const [clients, setClients] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [deleteId, setDeleteId] = useState(null);
-  const [modalMode, setModalMode] = useState(null); // 'add' or 'edit'
-  const [currentClient, setCurrentClient] = useState({ firstName: "", lastName: "", email: "", phone: "", address: "" });
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    fetchClients();
-  }, []);
+    // Re-fetch clients whenever currentPage or searchTerm changes
+    fetchClients(currentPage, searchTerm);
+  }, [currentPage, searchTerm]);
 
-  const fetchClients = async () => {
+  const fetchClients = async (page, search) => {
+    setLoading(true);
     try {
-      const res = await api.get("/client/");
-      setClients(res.data);
+      // Use search term and pagination in the API call
+      const res = await api.get(`/client?page=${page}&limit=10&search=${search}`);
+      setClients(res.data.clients || []);
+      setTotalPages(res.data.totalPages || 1);
+      // Client-side filtering logic removed - handled by backend
     } catch (error) {
       toast.error("Failed to fetch clients");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleDelete = async () => {
-    if(!deleteId) return;
-    try {
-      await api.delete(`/client/${deleteId}`);
-      toast.success("Client deleted");
-      fetchClients();
-    } catch (error) {
-      toast.error("Delete failed");
-    }
-  };
+  // Stats calculation is now based on all fetched clients for the current page, 
+  // but for dashboard stats (like Total Clients), it should ideally be based on totalClients count from pagination response.
+  const totalClients = clients.length; // This should be updated from the API response's totalClients count
+  const verifiedClients = clients.filter(c => c.verified).length;
 
-  const handleSave = async (e) => {
-    e.preventDefault();
-    try {
-        if (modalMode === 'add') {
-            await api.post("/client/", currentClient);
-            toast.success("Client added");
-        } else {
-            await api.put(`/client/${currentClient._id}`, currentClient);
-            toast.success("Client updated");
+  // Function to navigate directly to edit page
+  const handleEdit = (id) => {
+    navigate(`/edit-client/${id}`); // Assuming you have an edit route
+  }
+
+  // Function to handle delete (implementing the backend logic)
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this client?")) {
+        try {
+            await api.delete(`/client/${id}`);
+            toast.success("Client deleted successfully");
+            fetchClients(currentPage, searchTerm); // Refresh list
+        } catch (error) {
+            toast.error("Failed to delete client");
         }
-        setModalMode(null);
-        fetchClients();
-        setCurrentClient({ firstName: "", lastName: "", email: "", phone: "", address: "" });
-    } catch (err) {
-        toast.error("Operation failed");
     }
-  };
-
-  const handleExport = () => {
-    const headers = ["First Name", "Last Name", "Email", "Phone", "Address"];
-    const csvData = [
-        headers.join(","),
-        ...clients.map(c => `${c.firstName},${c.lastName},${c.email},${c.phone},"${c.address||''}"`)
-    ].join("\n");
-    
-    const blob = new Blob([csvData], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "clients_list.csv";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const filteredClients = clients.filter(client => 
-    client.firstName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    client.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Clients</h1>
-          <p className="text-muted-foreground mt-1">Manage your client base.</p>
+          <p className="text-muted-foreground mt-1">Manage your client relationships.</p>
         </div>
-        <div className="flex gap-2">
-            <Button variant="outline" onClick={handleExport}>
-                <Download size={16} className="mr-2"/> Export
-            </Button>
-            <Button onClick={() => { setModalMode('add'); setCurrentClient({ firstName: "", lastName: "", email: "", phone: "", address: "" }); }}>
-                <Plus size={16} className="mr-2" /> Add Client
-            </Button>
-        </div>
+        <Button onClick={() => navigate("/add-client")}>
+          <Plus size={16} className="mr-2" />
+          Add Client
+        </Button>
+      </div>
+
+      {/* Stats Cards - Note: Total Clients count should use totalClients from API response for accuracy */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">Total Clients</p>
+          <p className="text-2xl font-bold mt-2">{totalClients}</p> 
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">Verified Clients</p>
+          <p className="text-2xl font-bold mt-2 text-green-600">{verifiedClients}</p>
+        </Card>
+        {/* Placeholder stats as per reference */}
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">Active Invoices</p>
+          <p className="text-2xl font-bold mt-2">--</p>
+        </Card>
+        <Card className="p-4">
+           <p className="text-sm text-muted-foreground">Total Revenue</p>
+           <p className="text-2xl font-bold mt-2">--</p>
+        </Card>
       </div>
 
       <Card>
@@ -105,7 +101,11 @@ const ClientList = () => {
               placeholder="Search clients..."
               className="pl-9"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              // Set search term, which triggers useEffect to fetch data
+              onChange={(e) => { 
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); // Reset to page 1 on new search
+              }}
             />
           </div>
         </div>
@@ -114,19 +114,30 @@ const ClientList = () => {
           <table className="w-full text-sm text-left">
             <thead className="bg-muted/50 text-muted-foreground font-medium">
               <tr>
-                <th className="px-6 py-3">Name</th>
-                <th className="px-6 py-3">Email</th>
-                <th className="px-6 py-3">Phone</th>
+                <th className="px-6 py-3">Client Name</th>
+                <th className="px-6 py-3">Contact Info</th>
                 <th className="px-6 py-3">Status</th>
                 <th className="px-6 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filteredClients.map((client) => (
+              {clients.map((client) => ( // Use 'clients' array directly
                 <tr key={client._id} className="hover:bg-muted/50 transition-colors">
-                  <td className="px-6 py-4 font-medium">{client.firstName} {client.lastName}</td>
-                  <td className="px-6 py-4 text-muted-foreground">{client.email}</td>
-                  <td className="px-6 py-4">{client.phone}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      {/* Assuming first name exists, otherwise use email initial */}
+                      <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
+                        {client.firstName ? client.firstName[0] : client.email ? client.email[0].toUpperCase() : 'C'}
+                      </div>
+                      <span className="font-medium">{client.firstName} {client.lastName}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1 text-muted-foreground">
+                      <span className="flex items-center gap-2"><Mail size={12}/> {client.email}</span>
+                      <span className="flex items-center gap-2"><Phone size={12}/> {client.phone}</span>
+                    </div>
+                  </td>
                   <td className="px-6 py-4">
                     <Badge variant={client.verified ? "success" : "warning"}>
                       {client.verified ? "Verified" : "Pending"}
@@ -134,57 +145,57 @@ const ClientList = () => {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => { setCurrentClient(client); setModalMode('edit'); }}>
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(client._id)}>
                             <Edit size={16} className="text-blue-500" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => setDeleteId(client._id)}>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(client._id)}>
                             <Trash2 size={16} className="text-destructive" />
                         </Button>
                     </div>
                   </td>
                 </tr>
               ))}
+              {clients.length === 0 && !loading && (
+                <tr>
+                  <td colSpan="4" className="px-6 py-8 text-center text-muted-foreground">
+                    No clients found.
+                  </td>
+                </tr>
+              )}
+               {loading && (
+                <tr>
+                  <td colSpan="4" className="px-6 py-8 text-center text-muted-foreground">
+                    Loading clients...
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
-      </Card>
-
-      {/* Client Modal */}
-      {modalMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <Card className="w-full max-w-lg">
-                <div className="flex justify-between items-center p-6 border-b">
-                    <h3 className="font-bold text-lg">{modalMode === 'add' ? 'Add Client' : 'Edit Client'}</h3>
-                    <button onClick={() => setModalMode(null)}><X size={20} /></button>
-                </div>
-                <CardContent className="p-6 pt-4">
-                    <form onSubmit={handleSave} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div><Label>First Name</Label><Input value={currentClient.firstName} onChange={e => setCurrentClient({...currentClient, firstName: e.target.value})} required/></div>
-                            <div><Label>Last Name</Label><Input value={currentClient.lastName} onChange={e => setCurrentClient({...currentClient, lastName: e.target.value})} required/></div>
-                        </div>
-                        <div><Label>Email</Label><Input type="email" value={currentClient.email} onChange={e => setCurrentClient({...currentClient, email: e.target.value})} required/></div>
-                        <div><Label>Phone</Label><Input value={currentClient.phone} onChange={e => setCurrentClient({...currentClient, phone: e.target.value})} required/></div>
-                        <div><Label>Address</Label><Input value={currentClient.address} onChange={e => setCurrentClient({...currentClient, address: e.target.value})}/></div>
-                        
-                        <div className="flex justify-end gap-2 pt-4">
-                            <Button type="button" variant="outline" onClick={() => setModalMode(null)}>Cancel</Button>
-                            <Button type="submit">Save</Button>
-                        </div>
-                    </form>
-                </CardContent>
-            </Card>
+        
+        {/* Pagination Controls */}
+        <div className="flex justify-between items-center p-6 border-t border-border">
+            <p className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</p>
+            <div className="flex gap-2">
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} 
+                    disabled={currentPage === 1}
+                >
+                    Previous
+                </Button>
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} 
+                    disabled={currentPage === totalPages}
+                >
+                    Next
+                </Button>
+            </div>
         </div>
-      )}
-
-      <ConfirmationModal 
-        isOpen={!!deleteId} 
-        onClose={() => setDeleteId(null)} 
-        onConfirm={handleDelete}
-        title="Delete Client"
-        message="Are you sure you want to remove this client? This might affect existing invoices."
-        isDestructive={true}
-      />
+      </Card>
     </div>
   );
 };

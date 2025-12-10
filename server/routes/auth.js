@@ -11,7 +11,7 @@ const otpStorage = {}
 // Generate OTP
 const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
 
-// Register
+// Register (for Admin/Employee)
 router.post('/register', async (req, res) => {
     const { username, email, phone, password} = req.body;
 
@@ -24,7 +24,7 @@ router.post('/register', async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = new User({ username,
-            email,
+            email: email.toLowerCase(), 
             phone,
             password: hashedPassword,
             role:"admin",
@@ -34,15 +34,15 @@ router.post('/register', async (req, res) => {
 
         // Send OTP after registration
         const otp = generateOtp();
-        // console.log(otp);
         user.otp = otp;
-        user.otpExpiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiration
+        user.otpExpiresAt = Date.now() + 10 * 60 * 1000; 
         await user.save();
 
         await sendOtpMail(email, otp);
         res.json({ message: 'OTP sent to email for verification' });
     } catch (error) {
-        res.status(500).json({ error: 'Error creating user' });
+        console.error("Registration Error:", error);
+        res.status(500).json({ error: 'Error creating user', details: error.message });
     }
 });
 
@@ -50,24 +50,25 @@ router.post('/register', async (req, res) => {
 router.post('/verify-otp-register', async (req, res) => {
     const { email, otp } = req.body;
     try {
-        const user = await User.findOne({ email });
-        if ( user.otp.toString() !== otp) {
+        const user = await User.findOne({ email: email.toLowerCase() });
+        if (!user || user.otp.toString() !== otp || user.otpExpiresAt < Date.now()) {
             return res.status(400).json({ message: 'Invalid or expired OTP' });
         }
         user.otp = undefined;
         user.otpExpiresAt = undefined;
         await user.save();
 
-        res.json({ message: 'Registration successful' });
+        res.json({ message: 'Registration successful. Please proceed to login.' });
     } catch (error) {
-        res.status(500).json({ error: 'Error verifying OTP' });
+        console.error("Verify OTP Register Error:", error);
+        res.status(500).json({ error: 'Error verifying OTP', details: error.message });
     }
 });
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email: email.toLowerCase() });
         if (!user) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
@@ -80,74 +81,70 @@ router.post('/login', async (req, res) => {
         // Send OTP after successful login
         const otp = generateOtp();
         user.otp = otp;
-        user.otpExpiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiration
+        user.otpExpiresAt = Date.now() + 10 * 60 * 1000; 
         await user.save();
 
         try {
             await sendOtpMail(email, otp);
             res.json({ message: 'OTP sent to email for verification' });
         } catch (error) {
-            res.status(500).json({ message: 'Failed to send OTP.'+error });
+            console.error("Failed to send OTP:", error);
+            res.status(500).json({ message: 'Failed to send OTP.'});
         }
         
-        //res.json({ message: 'OTP sent to email for verification' });
     } catch (error) {
+        console.error("Login Error:", error);
         res.status(500).json({ error: 'Error logging in' });
     }
 });
 
-// Verify OTP for Login
+// Verify OTP for Login (Admin/Employee)
 router.post('/verify-otp-login', async (req, res) => {
     const { email, otp } = req.body;
-    //console.log(email, otp);
 
     try {
-        const user = await User.findOne({ email });
-        //console.log(user);
+        const user = await User.findOne({ email: email.toLowerCase() });
         
         if (!user) {
-            return res.status(400).json({ message: 'User  not found' });
+            return res.status(400).json({ message: 'User not found' });
         }
         
         if (user.otpExpiresAt < Date.now()) {
             return res.status(400).json({ message: 'OTP expired' });
         }
         
-        if (user.otp == otp) {
-            console.log("otp matched");
-        }
-        else{
+        if (user.otp != otp) { 
             return res.status(400).json({ message: 'Invalid OTP' });
         }
-        //console.log("otp verified");
+
         user.otp = undefined;
         user.otpExpiresAt = undefined;
         await user.save();
-        //console.log("user saved");
 
-        const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.json({ token });
-        //res.json({ token, userId: user._id });
-        //console.log("token generated");
+        const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.json({ token, userId: user._id, role: user.role });
     } catch (error) {
+        console.error("Verify OTP Login Error:", error);
         res.status(500).json({ error: 'Error verifying OTP' });
     }
 });
 
-// Get User Profile
+// Get User Profile (Admin/Employee)
 router.get('/me', async (req, res) => {
-    // console.log(req.headers);
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ message: 'Unauthorized' });
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const user = await User.findById(decoded.userId).select('-password');
+        if (!user) return res.status(404).json({ message: 'User not found' });
         res.json(user);
     } catch (error) {
         res.status(401).json({ message: 'Unauthorized' });
     }
 });
+
+// Client: Send OTP
 router.post('/client/send-otp', async (req, res) => {
     const body = req.body;
 
@@ -158,48 +155,63 @@ router.post('/client/send-otp', async (req, res) => {
         }
 
         const OTP = generateOtp();
-        otpStorage[client.email] = { otp: OTP, expiresAt: Date.now() + 10 * 60 * 1000 };
+        otpStorage[client.email.toLowerCase()] = { otp: OTP, expiresAt: Date.now() + 10 * 60 * 1000 };
         try {
             await sendOtpMail(client.email, OTP);
             res.json({ success: true , message: 'OTP sent to email for verification' });
         } catch (error) {
+            console.error("Client Send OTP Mail Error:", error);
             res.status(500).json({ message: 'Failed to send OTP: ' + error.message });
         }
     } catch (error) {
+        console.error("Client Send OTP Error:", error);
         res.status(500).json({ error: 'Error sending OTP: ' + error.message });
     }
 });
+
+// Client: Verify OTP
 router.post('/client/verify-otp',async (req, res) => {
     const { email, otp } = req.body;
-    if (!otpStorage[email]) {
+    const lowerCaseEmail = email.toLowerCase();
+    
+    if (!otpStorage[lowerCaseEmail]) {
         return res.status(404).json({ message: 'OTP not found or expired' });
     }
 
-    const storedOtpData = otpStorage[email];
+    const storedOtpData = otpStorage[lowerCaseEmail];
     if (Date.now() > storedOtpData.expiresAt) {
-        delete otpStorage[email];
+        delete otpStorage[lowerCaseEmail];
         return res.status(400).json({ message: 'OTP has expired' });
     }
-    if (storedOtpData.otp === otp.toString()) {
-        const client = await Client.findOne({ email: email.toLowerCase() });
-        delete otpStorage[email];
-        const token = jwt.sign({clientID: client._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-        return res.json({ success:true,token:token });
+    if (storedOtpData.otp == otp.toString()) { 
+        const client = await Client.findOne({ email: lowerCaseEmail });
+        if (!client) {
+             return res.status(404).json({ message: 'Client not found' });
+        }
+        delete otpStorage[lowerCaseEmail];
+        // Token generation for Client
+        const token = jwt.sign({ clientID: client._id, role: 'client' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        return res.json({ success:true, token: token, clientID: client._id });
     } else {
         return res.status(400).json({ message: 'Invalid OTP' });
     }
 });
+
+// Get Client Profile - *** FIX: Use decoded.clientID ***
 router.get('/client/me', async (req, res) => {
-    // console.log(req.headers);
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) return res.status(401).json({ message: 'Unauthorized' });
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await Client.findById(decoded.userId).select('-password');
-        res.json(user);
+        // FIXED: Using decoded.clientID as set in /client/verify-otp
+        const client = await Client.findById(decoded.clientID).select('-password'); 
+        if (!client) return res.status(404).json({ message: 'Client not found' });
+        res.json(client);
     } catch (error) {
-        res.status(401).json({ message: 'Unauthorized' });
+        console.error("Client Me Error:", error);
+        res.status(401).json({ message: 'Unauthorized or Invalid Token' });
     }
 });
+
 module.exports = router;

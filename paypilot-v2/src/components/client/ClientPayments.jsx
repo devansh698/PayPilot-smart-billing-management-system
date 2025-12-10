@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import api from "../../api";
 import ClientLayout from "./ClientLayout";
 import { Search, CreditCard } from "lucide-react";
-import { Card } from "../ui/Card";
-import { Input } from "../ui/Input";
-import { Badge } from "../ui/Badge";
+import { Card } from "../ui/card";
+import { Input } from "../ui/input";
+import { Badge } from "../ui/badge";
 
 const ClientPayments = () => {
   const [payments, setPayments] = useState([]);

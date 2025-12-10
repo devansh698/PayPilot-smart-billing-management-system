@@ -17,9 +17,11 @@
     "@fortawesome/react-fontawesome": "^3.1.1",
     "@mui/icons-material": "^7.3.6",
     "@mui/material": "^7.3.6",
+    "@radix-ui/react-label": "^2.1.8",
     "axios": "^1.13.2",
     "bootstrap": "^5.3.8",
     "buffer": "^6.0.3",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "crypto-browserify": "^3.12.1",
     "html2canvas": "^1.4.1",
@@ -62,5 +64,4 @@
     "vite-plugin-node-polyfills": "^0.24.0"
   },
   "proxy": "http://localhost:3000"
-
 }

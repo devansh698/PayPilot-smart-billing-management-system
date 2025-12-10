@@ -3,57 +3,65 @@ import api from "../api";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { ArrowLeft, CheckCircle, CreditCard, Calendar } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
-import { Button } from "./ui/Button";
-import { Input } from "./ui/Input";
-import { Label } from "./ui/Label";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import SearchableSelect from "./ui/SearchableSelect";
 
 const CreateNewPayment = () => {
   const [payment, setPayment] = useState({
     invoiceId: "",
     amount: "",
-    date: new Date().toISOString().split('T')[0],
-    method: "Bank Transfer",
-    reference: ""
+    // Note: This date field is included but the backend primarily uses createdAt.
+    date: new Date().toISOString().split('T')[0], 
+    paymentMethod: "Bank Transfer", // Renamed to match backend field
+    paymentId: "" // Used for reference/transaction ID to match backend field
   });
   const [invoices, setInvoices] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Fetch unpaid invoices
-    api.get("/invoices?status=Pending").then(res => {
-        // Map to format required by SearchableSelect if needed, or keep raw for logic
-        setInvoices(res.data);
-    }).catch(console.error);
+    // Fetch unpaid invoices to populate dropdown
+    // FIX 1 & 2: Correct endpoint to /invoice and handle paginated response structure
+    api.get("/invoices?paymentStatus=Pending&limit=1000")
+      .then(res => setInvoices(res.data.invoices || [])) 
+      .catch(console.error);
   }, []);
-
-  const invoiceOptions = invoices.map(inv => ({
-      value: inv._id,
-      label: `#${inv.invoiceNo} - ${inv.client?.firstName || 'Client'} ($${inv.totalAmount})`
-  }));
-
-  const handleInvoiceSelect = (val) => {
-      const selectedInv = invoices.find(inv => inv._id === val);
-      setPayment({ 
-          ...payment, 
-          invoiceId: val,
-          amount: selectedInv ? selectedInv.totalAmount : "" // Auto-fill amount
-      });
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!payment.invoiceId) return toast.error("Please select an invoice");
+    
+    const selectedInvoice = invoices.find(inv => inv._id === payment.invoiceId);
+    if (!selectedInvoice) {
+        return toast.error("Please select a valid invoice.");
+    }
+    
+    // Prepare payload, including invoiceNo for notification (as required by backend)
+    const payload = {
+        invoiceId: payment.invoiceId,
+        amount: Number(payment.amount),
+        paymentMethod: payment.paymentMethod,
+        paymentId: payment.paymentId,
+        invoiceNo: selectedInvoice.invoiceNo
+    };
     
     try {
-      await api.post("/payment/", payment); // Standard REST: POST / to create
+      // FIX 3: Correct submission endpoint to /payment
+      await api.post("/payments", payload); 
       toast.success("Payment recorded successfully");
       navigate("/payment-manager");
     } catch (error) {
+      console.error("Payment submission failed:", error);
       toast.error(error.response?.data?.message || "Failed to record payment");
     }
   };
+  
+  // Helper to extract client name for dropdown (assuming 'client' is populated)
+  const getClientName = (client) => {
+      if (!client) return "N/A";
+      return client.firstName && client.lastName ? `${client.firstName} ${client.lastName}` : (client.name || "Unknown Client");
+  }
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
@@ -74,13 +82,29 @@ const CreateNewPayment = () => {
         <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                    <SearchableSelect 
-                        label="Select Invoice"
-                        placeholder="Search invoice # or client..."
-                        options={invoiceOptions}
+                    <Label>Select Invoice</Label>
+                    <select
+                        className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         value={payment.invoiceId}
-                        onChange={handleInvoiceSelect}
-                    />
+                        onChange={(e) => {
+                            const id = e.target.value;
+                            const inv = invoices.find(i => i._id === id);
+                            setPayment({ 
+                                ...payment, 
+                                invoiceId: id,
+                                // Auto-populate amount with invoice total
+                                amount: inv ? inv.totalAmount : "" 
+                            });
+                        }}
+                        required
+                    >
+                        <option value="">-- Choose Invoice --</option>
+                        {invoices.map(inv => (
+                            <option key={inv._id} value={inv._id}>
+                                #{inv.invoiceNo} - {getClientName(inv.client)} (${inv.totalAmount})
+                            </option>
+                        ))}
+                    </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
@@ -115,8 +139,8 @@ const CreateNewPayment = () => {
                         <CreditCard className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
                         <select
                             className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 pl-9 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                            value={payment.method}
-                            onChange={(e) => setPayment({ ...payment, method: e.target.value })}
+                            value={payment.paymentMethod}
+                            onChange={(e) => setPayment({ ...payment, paymentMethod: e.target.value })}
                         >
                             <option>Bank Transfer</option>
                             <option>Credit Card</option>
@@ -128,11 +152,11 @@ const CreateNewPayment = () => {
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Reference / Note</Label>
+                    <Label>Reference / Transaction ID</Label>
                     <Input
                         placeholder="e.g. Transaction ID 12345"
-                        value={payment.reference}
-                        onChange={(e) => setPayment({ ...payment, reference: e.target.value })}
+                        value={payment.paymentId}
+                        onChange={(e) => setPayment({ ...payment, paymentId: e.target.value })}
                     />
                 </div>
 

@@ -3,10 +3,10 @@ import api from "../../api";
 import ClientLayout from "./ClientLayout";
 import { toast } from "react-toastify";
 import { User, Phone, Mail, MapPin, Save } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
-import { Button } from "../ui/Button";
-import { Input } from "../ui/Input";
-import { Label } from "../ui/Label";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
 
 const ClientProfile = () => {
   const [profile, setProfile] = useState({

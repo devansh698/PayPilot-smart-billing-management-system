@@ -2,11 +2,11 @@ import React, { useState, useEffect } from "react";
 import api from "../api";
 import { User, Mail, Shield, Save, Key } from "lucide-react";
 import { toast } from "react-toastify";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
-import { Button } from "./ui/Button";
-import { Input } from "./ui/Input";
-import { Label } from "./ui/Label";
-import { Badge } from "./ui/Badge"; // <--- Added missing import
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Badge } from "./ui/badge"; // <--- Added missing import
 
 const ProfilePage = () => {
   const [profile, setProfile] = useState({

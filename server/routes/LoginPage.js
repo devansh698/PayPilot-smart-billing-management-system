@@ -4,10 +4,11 @@ const mail = require("../helpers/sendMail");
 const sendotps = require("../helpers/otp");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const user = require("../models/User");
+const User = require("../models/User"); // User model (for Admin/Employee)
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 const sendMail = require("../helpers/sendMail");
+const authMiddleware = require('../middlewares/authMiddleware'); // For CRUD routes
 
 router.use(express.json());
 
@@ -35,12 +36,8 @@ router.post("/send-email", async (req, res) => {
   }
 });
 
-function isValidEmail(email) {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(String(email).toLowerCase());
-}
-  
-// Endpoint to send OTP
+
+// Endpoint to send OTP - *** FIX: Correctly fetch user document ***
 router.post("/send-otp", async (req, res) => {
   const { email } = req.body;
   if (!email) {
@@ -48,46 +45,46 @@ router.post("/send-otp", async (req, res) => {
   }
 
   try {
-    const userDoc = email;
+    const userDoc = await User.findOne({ email: email.toLowerCase() }); // *** FIXED ***
     if (!userDoc) {
-      return res.status(404).json({ status: 404, message: "User  not found" });
+      return res.status(404).json({ status: 404, message: "User not found" });
     }
 
     const otp = generateRandomNumber();
-    otpStorage[email] = otp; // Store OTP in memory (you should use a database in production)
+    otpStorage[email.toLowerCase()] = { otp: otp, expiresAt: Date.now() + 10 * 60 * 1000 }; // Store OTP with expiration
 
-    // Send OTP email
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Your OTP Code",
-      text: `Your OTP code is ${otp}. It is valid for 10 minutes.`,
-    };
+    // Assuming 'transporter' setup is in '../helpers/sendMail' or global scope.
+    // Using the helper function from other auth files for consistency:
+    await sendotps.sendOtpMail(email, otp); 
 
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        return res.status(500).json({ status: 500, message: "Failed to send OTP." });
-      }
-      res.status(200).json({ status: 200, message: "OTP sent successfully." });
-    });
+    res.status(200).json({ status: 200, message: "OTP sent successfully." });
+    
   } catch (err) {
     console.error(err);
-    res.status(500).json({ status: 500, message: "Internal Server Error" });
+    res.status(500).json({ status: 500, message: "Internal Server Error", details: err.message });
   }
 });
 
 // Endpoint to verify OTP
 router.post("/verify-otp", (req, res) => {
   const { email, otp } = req.body;
+  const lowerCaseEmail = email.toLowerCase();
 
-  // Check if the OTP matches
-  if (otpStorage[email] && otpStorage[email] === otp) {
-    delete otpStorage[email]; // Clear the OTP after verification
+  if (!otpStorage[lowerCaseEmail] || Date.now() > otpStorage[lowerCaseEmail].expiresAt) {
+      delete otpStorage[lowerCaseEmail];
+      return res.status(400).json({ status: 400, message: "Invalid or expired OTP." });
+  }
+
+  // Check if the OTP matches - *** Using string comparison ***
+  if (otpStorage[lowerCaseEmail].otp === otp.toString()) {
+    delete otpStorage[lowerCaseEmail]; // Clear the OTP after verification
     return res.status(200).json({ status: 200, message: "OTP verified successfully." });
   } else {
     return res.status(400).json({ status: 400, message: "Invalid OTP." });
   }
 });
+
+// Endpoint to send OTP (alternative/duplicate) - Removed reliance on global sendotps.SendotpMail
 router.post("/otp", async (req, res) => {
   const { email } = req.body;
   if (!email) {
@@ -95,19 +92,22 @@ router.post("/otp", async (req, res) => {
   }
 
   try {
-    const userDoc = await user.findOne({ email });
+    const userDoc = await User.findOne({ email: email.toLowerCase() });
     if (!userDoc) {
       return res.status(404).json({ status: 404, message: "User not found" });
     }
 
     const otp = generateRandomNumber();
-    const otpExpiresAt = Date.now() + 120000;
-    const sendOtpResponse = await sendotps.SendotpMail(email, otp);
+    const otpExpiresAt = Date.now() + 10 * 60 * 1000; // Consistent 10 minute expiration
+    
+    // Using the same helper function for consistency
+    const sendOtpResponse = await sendotps.sendOtpMail(email, otp); 
+    
     if (!sendOtpResponse) {
-      return res.status(400).json({ status: 400, message: "OTP not sent" });
+      return res.status(400).json({ status: 400, message: "OTP not sent (Mail error)" });
     }
 
-    await user.findByIdAndUpdate(
+    await User.findByIdAndUpdate(
       userDoc._id,
       { otp, otpExpiresAt },
       { new: true }
@@ -115,7 +115,7 @@ router.post("/otp", async (req, res) => {
     res.json({ status: 200, message: "OTP sent" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ status: 500, message: "Internal Server Error" });
+    res.status(500).json({ status: 500, message: "Internal Server Error", details: err.message });
   }
 });
 
@@ -124,10 +124,10 @@ router.post("/login", async (req, res) => {
   if (!email || !otp || !password) {
     return res
       .status(400)
-      .json({ status: 400, message: "Email and OTP are required" });
+      .json({ status: 400, message: "Email, password, and OTP are required" });
   }
   try {
-    const userDoc = await user.findOne({ email });
+    const userDoc = await User.findOne({ email: email.toLowerCase() });
     if (!userDoc) {
       return res
         .status(401)
@@ -141,25 +141,36 @@ router.post("/login", async (req, res) => {
         .json({ status: 401, message: "Invalid credentials" });
     }
 
-    const otpNumber = Number(otp);
-    const otpNumber1 = Number(userDoc.otp);
-    if (otpNumber !== otpNumber1) {
+    // *** FIX: Comparing OTPs as strings for robustness ***
+    if (userDoc.otp !== otp.toString()) {
       return res.status(401).json({ status: 401, message: "Invalid OTP" });
     }
 
     if (userDoc.otpExpiresAt < Date.now()) {
       return res.status(401).json({ status: 401, message: "OTP has expired" });
     }
+    
+    // Clear OTP after successful login
+    await User.findByIdAndUpdate(userDoc._id, { otp: null, otpExpiresAt: null });
 
-    const token = jwt.sign({ userId: userDoc._id }, "MySecrateKey", {
+    // Use environment variable for JWT Secret for consistency
+    const secret = process.env.JWT_SECRET || "MySecrateKey"; 
+    const token = jwt.sign({ userId: userDoc._id, role: userDoc.role }, secret, {
       expiresIn: "1h",
     });
-    const tokenExpiryTime =  new Date();
-    tokenExpiryTime.setHours(tokenExpiryTime.getHours() + 1);
-    res.json({ status: 200, message: "Login success", data: userDoc, token, tokenExpiryTime: tokenExpiryTime.getTime() });
+    
+    const tokenExpiryTime =  new Date(Date.now() + 1000 * 60 * 60); // 1 hour expiry
+    
+    res.json({ 
+        status: 200, 
+        message: "Login success", 
+        data: userDoc, 
+        token, 
+        tokenExpiryTime: tokenExpiryTime.getTime() 
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ status: 500, message: "Internal Server Error" });
+    res.status(500).json({ status: 500, message: "Internal Server Error", details: err.message });
   }
 });
 
@@ -175,39 +186,85 @@ router.post("/register", async (req, res) => {
   const hashedPassword = await bcrypt.hash(password, 10);
 
   try {
-    const userDoc = await user.create({
+    // Ensure email is unique and lowercased
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+        return res.status(400).json({ status: 400, message: "User with this email already exists." });
+    }
+    
+    const userDoc = await User.create({
       username,
-      email,
+      email: email.toLowerCase(),
       phone,
       password: hashedPassword,
       role,
       otp: null,
       otpExpiresAt: null,
     });
-    if (!userDoc) {
-      return res.status(400).json({ status: 400, message: "User not created" });
-    }
-
+    
     res.json({ status: 200, message: "User created", data: userDoc });
     
   } catch (err) {
     console.error(err);
-    res.status(500).json({ status: 500, message: "Internal Server Error" });
-  }
-});
-router.get("/", async (req, res) => {
-  try {
-    const users = await user.find().exec();
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ message: "Error fetching users" });
+    res.status(500).json({ status: 500, message: "Internal Server Error", details: err.message });
   }
 });
 
-router.patch("/:id/change-password", async (req, res) => {
+// Get all users (Employees/Admins) - *** FIX: Added Pagination, Sorting, and Filtering ***
+router.get("/", authMiddleware, async (req, res) => {
+  try {
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', search = '', role } = req.query;
+
+    const sort = {};
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+    const filter = {};
+    if (search) {
+        // Search by username, email, or phone
+        filter.$or = [
+            { username: { $regex: search, $options: 'i' } },
+            { email: { $regex: search, $options: 'i' } },
+            { phone: { $regex: search, $options: 'i' } },
+        ];
+    }
+    if (role) {
+        filter.role = role;
+    }
+
+    const users = await User.find(filter)
+      .select('-password -otp -otpExpiresAt')
+      .sort(sort)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .exec();
+    
+    const totalUsers = await User.countDocuments(filter);
+
+    res.json({ 
+        users, 
+        totalPages: Math.ceil(totalUsers / parseInt(limit)),
+        currentPage: parseInt(page),
+        totalUsers,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching users", details: err.message });
+  }
+});
+
+// Change Password Route
+router.patch("/:id/change-password", authMiddleware, async (req, res) => {
   try {
     const {id}= req.params;
     const { oldPassword, newPassword } = req.body;
+    
+    // Security check: only allow user to change their own password
+    if (req.user._id.toString() !== id) {
+        // Or if the user has an 'admin' role, allow it
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ status: 403, message: "Access denied. Cannot change another user's password." });
+        }
+    }
+
 
     if (!oldPassword || !newPassword) {
       return res
@@ -217,9 +274,9 @@ router.patch("/:id/change-password", async (req, res) => {
           message: "Old password and new password are required",
         });
     }
-    console.log(id);
-    const userDoc = await user.findById(id).exec();
-    console.log(userDoc);
+    
+    const userDoc = await User.findById(id).exec();
+    
     if (!userDoc) {
       return res.status(404).json({ status: 404, message: "User not found" });
     }
@@ -232,7 +289,7 @@ router.patch("/:id/change-password", async (req, res) => {
     }
 
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-    await user.findByIdAndUpdate(
+    await User.findByIdAndUpdate(
       id,
       { password: hashedNewPassword },
       { new: true }
@@ -245,9 +302,10 @@ router.patch("/:id/change-password", async (req, res) => {
   }
 });
 
-router.get("/:id", async (req, res) => {
+// Get single user
+router.get("/:id", authMiddleware, async (req, res) => {
   try {
-    const userDoc = await user.findById(req.params.id).exec();
+    const userDoc = await User.findById(req.params.id).select('-password -otp -otpExpiresAt').exec();
     if (!userDoc) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -256,22 +314,35 @@ router.get("/:id", async (req, res) => {
     res.status(500).json({ message: "Error fetching user" });
   }
 });
-router.put("/:id", async (req, res) => {
+
+// Update User (PUT) - *** FIX: Added authMiddleware and runValidators: true ***
+router.put("/:id", authMiddleware, async (req, res) => {
   try {
-    const userDoc = await user
-      .findByIdAndUpdate(req.params.id, req.body, { new: true })
+    const updateData = req.body;
+    // Prevent changing password or sensitive fields via PUT
+    delete updateData.password; 
+    delete updateData.otp;
+    delete updateData.otpExpiresAt;
+    
+    const userDoc = await User
+      .findByIdAndUpdate(req.params.id, updateData, { 
+          new: true, 
+          runValidators: true // Added validation
+      })
       .exec();
     if (!userDoc) {
       return res.status(404).json({ message: "User not found" });
     }
     res.json(userDoc);
   } catch (err) {
-    res.status(500).json({ message: "Error updating user" });
+    res.status(500).json({ message: "Error updating user", details: err.message });
   }
 });
-router.delete("/:id", async (req, res) => {
+
+// Delete User
+router.delete("/:id", authMiddleware, async (req, res) => {
   try {
-    const userDoc = await user.findByIdAndDelete(req.params.id).exec();
+    const userDoc = await User.findByIdAndDelete(req.params.id).exec();
     if (!userDoc) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -282,18 +353,27 @@ router.delete("/:id", async (req, res) => {
 });
 
 
-
-router.patch("/:id", async (req, res) => {
+// Partial Update User (PATCH) - *** FIX: Added authMiddleware and runValidators: true ***
+router.patch("/:id", authMiddleware, async (req, res) => {
   try {
-    const userDoc = await user
-      .findByIdAndUpdate(req.params.id, req.body, { new: true })
+    const updateData = req.body;
+    // Prevent changing password or sensitive fields via PATCH
+    delete updateData.password; 
+    delete updateData.otp;
+    delete updateData.otpExpiresAt;
+
+    const userDoc = await User
+      .findByIdAndUpdate(req.params.id, updateData, { 
+          new: true, 
+          runValidators: true 
+      })
       .exec();
     if (!userDoc) {
       return res.status(404).json({ message: "User not found" });
     }
     res.json(userDoc);
   } catch (err) {
-    res.status(500).json({ message: "Error updating user" });
+    res.status(500).json({ message: "Error updating user", details: err.message });
   }
 });
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle, BarChart3, ShieldCheck, ArrowRight, LayoutDashboard } from 'lucide-react';
-import { Button } from './ui/Button';
+import { Button } from './ui/button';
 
 const LandingPage = () => {
     return (

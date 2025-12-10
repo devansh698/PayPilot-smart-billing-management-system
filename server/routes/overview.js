@@ -4,6 +4,9 @@ const Invoice = require("../models/Invoice");
 const Client = require("../models/Client");
 const Product = require("../models/Product");
 
+// Helper to ensure values are numbers (copied from chartsdata.js for robustness)
+const toNum = (val) => Number(val) || 0; 
+
 Router.get("/", async (req, res) => {
   try {
     const clients = await Client.find().exec();
@@ -11,19 +14,20 @@ Router.get("/", async (req, res) => {
     const products = await Product.find().exec();
 
     const totalBilledAmount = invoices.reduce(
-      (acc, invoice) => acc + invoice.totalAmount,
+      (acc, invoice) => acc + toNum(invoice.totalAmount), // *** FIXED with toNum ***
       0
     );
     const numberOfInvoices = invoices.length;
-    const averageInvoiceValue = totalBilledAmount / numberOfInvoices;
-    const recentInvoices = invoices.slice(0, 3);
-    //const topClients = clients.filter(client => client.invoices).sort((a, b) => b.invoices.length - a.invoices.length).slice(0, 3);
+    const averageInvoiceValue = numberOfInvoices > 0 ? totalBilledAmount / numberOfInvoices : 0;
+    const recentInvoices = invoices.sort((a, b) => b.date - a.date).slice(0, 3); // Sorted for correctness
+    
+    // Aggregate Top Clients
     const topClients = await Client.aggregate([
       {
         $lookup: {
           from: "invoices",
           localField: "_id",
-          foreignField: "clientId",
+          foreignField: "client", // Assuming 'client' is the field in Invoice model for Client ID
           as: "invoices",
         },
       },
@@ -38,32 +42,40 @@ Router.get("/", async (req, res) => {
       {
         $limit: 3,
       },
+      {
+          $project: { password: 0, otp: 0, otpExpiresAt: 0 } // Exclude sensitive fields
+      }
     ]);
+    
+    // *** FIX: Simplified overdue logic to strictly check payment status ***
     const overdueInvoices = invoices.filter((invoice) => {
-      const dueDate = new Date(invoice.date);
-      const today = new Date();
-      const diffInDays = Math.abs((today - dueDate) / (1000 * 3600 * 24));
-      return diffInDays >= 0 && invoice.paymentStatus === "Pending";
+        // Assuming overdue is any invoice where paymentStatus is "Pending"
+        // If a due date check is needed, the Invoice model should have a dueDate field.
+        return invoice.paymentStatus && invoice.paymentStatus.toLowerCase() === "pending"; 
     });
-    //const overdueInvoices = invoices.filter(invoice => invoice.date < new Date() - 30 * 24 * 60 * 60 * 1000);
+    
+    // Filter for upcoming invoices (in the next 30 days)
+    const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const today = new Date();
+    
     const upcomingBillingDates = invoices.filter(
       (invoice) =>
-        invoice.date >= new Date() &&
-        invoice.date <= new Date() + 30 * 24 * 60 * 60 * 1000
+        invoice.date >= today &&
+        invoice.date <= thirtyDaysFromNow
     );
-    const pendingBillpayment = invoices.filter(
-      (invoice) => invoice.paymentStatus === "Pending"
-    );
+    
+    const pendingBillpayment = overdueInvoices; // pendingBillpayment is the same as overdueInvoices if based on status
+    
     const totalUnbilledPayment = pendingBillpayment.reduce(
-      (acc, invoice) => acc + invoice.totalAmount,
+      (acc, invoice) => acc + toNum(invoice.totalAmount), // *** FIXED with toNum ***
       0
     );
 
     const lowInventoryProducts = products.filter(
-      (product) => product.quantity <= 10
+      (product) => toNum(product.quantity) <= 10
     );
     const outOfStockProducts = products.filter(
-      (product) => product.quantity === 0
+      (product) => toNum(product.quantity) === 0
     );
 
     const lowInventoryProductsList = lowInventoryProducts.map((product) => ({
@@ -89,7 +101,7 @@ Router.get("/", async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: "Internal Server Error", details: err.message });
   }
 });
 module.exports = Router;

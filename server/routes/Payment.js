@@ -12,7 +12,7 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// 1. ROUTE: Create Razorpay Order (For Security)
+// 1. ROUTE: Create Razorpay Order
 router.post('/razorpay-order', async (req, res) => {
   try {
     const { amount, currency = "INR" } = req.body;
@@ -59,7 +59,7 @@ router.post('/', async (req, res) => {
   try {
     const paymentData = req.body;
     const payment = new Payment({
-      paymentId: paymentData.paymentId, // This can now be the Razorpay Transaction ID
+      paymentId: paymentData.paymentId, 
       clientId: paymentData.clientId,
       invoiceId: paymentData.invoiceId,
       paymentMethod: paymentData.paymentMethod,
@@ -73,10 +73,41 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Get all payments with pagination, sorting, and filtering
 router.get('/', async (req, res) => {
   try {
-    const payments = await Payment.find().populate('clientId').populate('invoiceId').exec();
-    res.send(payments);
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', search = '', paymentMethod } = req.query;
+
+    const sort = {};
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+    const filter = {};
+    if (search) {
+        filter.$or = [
+            { paymentMethod: { $regex: search, $options: 'i' } },
+        ];
+    }
+    if (paymentMethod) {
+        filter.paymentMethod = paymentMethod;
+    }
+
+
+    const payments = await Payment.find(filter)
+      .populate('clientId', 'name email') // Populate client data for better reports
+      .populate('invoiceId', 'invoiceNumber totalAmount') // Populate invoice data
+      .sort(sort)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .exec();
+      
+    const totalPayments = await Payment.countDocuments(filter);
+
+    res.json({
+        payments,
+        totalPages: Math.ceil(totalPayments / parseInt(limit)),
+        currentPage: parseInt(page),
+        totalPayments,
+    });
   } catch (error) {
     res.status(500).send({ message: 'Error fetching payments' });
   }

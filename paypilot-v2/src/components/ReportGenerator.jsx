@@ -5,9 +5,9 @@ import {
   AreaChart, Area 
 } from "recharts";
 import { Download, Filter, TrendingUp } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
-import { Button } from "./ui/Button";
-import { Input } from "./ui/Input";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 
 const ReportGenerator = () => {
   const [salesData, setSalesData] = useState([]);

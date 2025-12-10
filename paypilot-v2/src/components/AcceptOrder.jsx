@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import api from "../api";
 import { Search, Filter, Eye, CheckCircle, XCircle, Clock, ShoppingCart } from "lucide-react";
 import { toast } from "react-toastify";
-import { Card, CardContent } from "./ui/Card";
-import { Button } from "./ui/Button";
-import { Badge } from "./ui/Badge";
+import { Card, CardContent } from "./ui/card";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 
 const AcceptOrder = () => {
   const [orders, setOrders] = useState([]);
@@ -17,10 +17,12 @@ const AcceptOrder = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await api.get("/order/all"); // Adjust endpoint if needed
-      setOrders(res.data);
+      // FIX 1: Change endpoint from /order/all to /order.
+      const res = await api.get("/orders?limit=1000"); // Fetch all/large limit for this page view
+      // FIX 3: Access the orders array from the paginated response object (res.data.orders)
+      setOrders(res.data.orders || []); 
     } catch (error) {
-      console.error("Failed to fetch orders");
+      console.error("Failed to fetch orders", error);
     } finally {
       setLoading(false);
     }
@@ -28,7 +30,8 @@ const AcceptOrder = () => {
 
   const updateStatus = async (id, status) => {
     try {
-      await api.put(`/order/${id}`, { status });
+      // FIX 2: Change PUT to PATCH to match the backend route definition
+      await api.patch(`/orders/${id}`, { status }); 
       toast.success(`Order marked as ${status}`);
       fetchOrders();
     } catch (error) {

@@ -14,10 +14,17 @@ const Navbar = ({ onMenuClick, isMobile }) => {
 
   const fetchNotifications = async () => {
     try {
-      const res = await api.get('/notifications');
-      setNotifications(res.data);
-      setUnreadCount(res.data.filter(n => !n.read).length);
+      // FIX 1 & 2: Fetch only unread notifications and specify limit for the dropdown.
+      const res = await api.get('/notifications?limit=10&isRead=false&sortBy=createdAt&sortOrder=desc');
+      
+      // FIX 1: Access the notifications array and total count from the paginated response object
+      const data = res.data.notifications || []; 
+      const totalCount = res.data.totalCount || 0; 
+      
+      setNotifications(data);
+      setUnreadCount(totalCount);
     } catch (error) {
+      // The 401 error is likely due to an expired token, but handling the response structure properly is necessary.
       if (error.response && error.response.status !== 401) {
         console.error("Failed to fetch notifications");
       }
@@ -72,13 +79,14 @@ const Navbar = ({ onMenuClick, isMobile }) => {
           {/* Notifications Dropdown */}
           {showNotifMenu && (
             <div className="absolute right-0 mt-2 w-80 bg-popover border border-border rounded-lg shadow-lg py-2 z-50">
-              <div className="px-4 py-2 border-b border-border font-semibold text-sm">Notifications</div>
+              <div className="px-4 py-2 border-b border-border font-semibold text-sm">Notifications ({unreadCount})</div>
               <div className="max-h-64 overflow-y-auto">
                 {notifications.length > 0 ? (
                   notifications.map((n, i) => (
                     <div key={i} className="px-4 py-3 border-b border-border last:border-0 hover:bg-accent/50 cursor-pointer">
                       <p className="text-sm text-foreground">{n.message}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{new Date(n.date).toLocaleString()}</p>
+                      {/* FIX 3: Use n.createdAt for consistency with backend date fields */}
+                      <p className="text-xs text-muted-foreground mt-1">{new Date(n.createdAt).toLocaleString()}</p> 
                     </div>
                   ))
                 ) : (

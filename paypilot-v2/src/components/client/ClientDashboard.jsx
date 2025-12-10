@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import api from "../../api";
 import ClientLayout from "./ClientLayout";
 import { ShoppingCart, Clock, CheckCircle, ArrowRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
-import { Button } from "../ui/Button";
-import { Badge } from "../ui/Badge";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
 import { Link } from "react-router-dom";
 
 const ClientDashboard = () => {

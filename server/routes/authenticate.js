@@ -3,14 +3,17 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const router = express.Router();
 
-const secretKey ="MySecrateKey";
+// *** FIX: Use environment variable for secret key ***
+const secretKey = process.env.JWT_SECRET || "MySecrateKey"; 
+
 const authenticate = async (req, res, next) => {
     try {
         const token = req.header('Authorization').replace('Bearer ', '');
         if (!token) {
             return res.status(401).send('Invalid authorization header');
         }
-        const data = jwt.verify(token, secretKey);
+        // Verify with the secret key
+        const data = jwt.verify(token, secretKey); 
         if (!data || !data.userId) {
             return res.status(401).send('Invalid token');
         }
@@ -30,7 +33,12 @@ router.get('/', authenticate, (req, res) => {
 });
 
 router.get('/me', authenticate, (req, res) => {
-    res.status(200).send(req.user);
+    // Exclude password and OTP fields
+    const userProfile = req.user.toObject();
+    delete userProfile.password;
+    delete userProfile.otp;
+    delete userProfile.otpExpiresAt;
+    res.status(200).send(userProfile);
 });
 
 module.exports = router;

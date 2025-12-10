@@ -6,14 +6,17 @@ const Product = require("../models/Product");
 const Payment = require("../models/Payment");
 
 // Define functions for each API endpoint
+
+// Helper to ensure values are numbers
+const toNum = (val) => Number(val) || 0;
+
 async function getTotalBilledAmount() {
   try {
-    const invoices = await Invoice.find().select("totalAmount");
-    const totalBilledAmount = invoices.reduce(
-      (acc, invoice) => acc + invoice.totalAmount,
-      0
-    );
-    return totalBilledAmount;
+    // Aggregation for robust calculation of sum
+    const result = await Invoice.aggregate([
+      { $group: { _id: null, total: { $sum: "$totalAmount" } } }
+    ]);
+    return toNum(result[0]?.total);
   } catch (error) {
     console.error(error);
     throw error;
@@ -33,8 +36,8 @@ async function getNumberOfInvoices() {
 async function getAverageInvoiceValue() {
   try {
     const invoices = await Invoice.find().select("totalAmount");
-    const sum = invoices.reduce((acc, invoice) => acc + invoice.totalAmount, 0);
-    const averageInvoiceValue = sum / invoices.length;
+    const sum = invoices.reduce((acc, invoice) => acc + toNum(invoice.totalAmount), 0);
+    const averageInvoiceValue = invoices.length > 0 ? sum / invoices.length : 0;
     return averageInvoiceValue;
   } catch (error) {
     console.error(error);
@@ -54,9 +57,10 @@ async function getRecentInvoices() {
 
 async function getTopClients() {
   try {
-    const clients = await Client.find().populate("invoices");
+    // Note: This relies on the Client schema having a populated 'invoices' array.
+    const clients = await Client.find().populate("invoices"); 
     const sortedClients = clients.sort(
-      (a, b) => b.invoices.length - a.invoices.length
+      (a, b) => (b.invoices ? b.invoices.length : 0) - (a.invoices ? a.invoices.length : 0)
     );
     const topClients = sortedClients.slice(0, 5);
     return topClients;
@@ -68,8 +72,9 @@ async function getTopClients() {
 
 async function getOverdueInvoices() {
   try {
+    // Assuming 'Pending' is the status for unfulfilled/overdue invoices
     const overdueInvoices = await Invoice.find({
-      paymentStatus: "pending",
+      paymentStatus: { $regex: /pending/i }, // Case-insensitive for robustness
     });
     return overdueInvoices;
   } catch (error) {
@@ -80,11 +85,11 @@ async function getOverdueInvoices() {
 
 async function getTotalUnbilledPayment() {
   try {
-    const invoices = await Invoice.find({ paymentStatus: "Pending" }).select(
+    const invoices = await Invoice.find({ paymentStatus: { $regex: /pending/i } }).select(
       "totalAmount"
     );
     const totalUnbilledPayment = invoices.reduce(
-      (acc, invoice) => acc + invoice.totalAmount,
+      (acc, invoice) => acc + toNum(invoice.totalAmount),
       0
     );
     return totalUnbilledPayment;
@@ -107,7 +112,7 @@ async function getProductinventory() {
   try {
     const products = await Product.find().select("quantity");
     const totalquantity = products.reduce(
-      (acc, product) => acc + product.quantity,
+      (acc, product) => acc + toNum(product.quantity),
       0
     );
     return totalquantity;
@@ -118,7 +123,7 @@ async function getProductinventory() {
 }
 async function getProductviseinventory() {
   try {
-    const products = await Product.find().select("quantity").select("name");
+    const products = await Product.find().select("quantity name");
     return products;
   } catch (error) {
     console.error(error);
@@ -142,7 +147,7 @@ async function getSalesReport() {
       {
         $group: {
           _id: { $month: "$date" },
-          totalAmount: { $sum: "$totalAmount" },
+          totalAmount: { $sum: { $ifNull: ["$totalAmount", 0] } },
         },
       },
     ]);
@@ -154,18 +159,20 @@ async function getSalesReport() {
 }
 async function getDailySalesReport() {
   try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const salesReport = await Invoice.aggregate([
       {
         $match: {
-          date: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          date: { $gte: sevenDaysAgo },
         },
       },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
-          totalAmount: { $sum: "$totalAmount" },
+          totalAmount: { $sum: { $ifNull: ["$totalAmount", 0] } },
         },
       },
+      { $sort: { _id: 1 } }
     ]);
     return salesReport;
   } catch (error) {
@@ -173,7 +180,9 @@ async function getDailySalesReport() {
     throw error;
   }
 }
-async function productsalsereport1() {
+
+// *** FIXED: Renamed and fixed to correctly return the sales report ***
+async function getProductSalesReports() { 
   try {
     const invoices = await Invoice.find()
       .populate({
@@ -184,47 +193,55 @@ async function productsalsereport1() {
         },
       })
       .exec();
+      
     const reports = invoices.reduce((acc, invoice) => {
-      const filteredProducts = invoice.products.filter(
-        (product) => product !== null
-      );
-      filteredProducts.forEach((product) => {
-        if (product.product !== null) {
-          const productId = product.product._id;
-          const productName = product.product.name;
+      // Filter out null/undefined products array or items
+      const filteredProducts = invoice.products ? invoice.products.filter(p => p && p.product) : [];
+
+      filteredProducts.forEach((productItem) => {
+        if (productItem.product && productItem.product.name) {
+          const productId = productItem.product._id.toString();
+          const productName = productItem.product.name;
+          const amount = toNum(productItem.amount);
+          
           const totalSales = acc[productId]
-            ? acc[productId].totalSales + product.amount
-            : product.amount;
+            ? acc[productId].totalSales + amount
+            : amount;
           const totalOrders = acc[productId]
             ? acc[productId].totalOrders + 1
             : 1;
+          
           acc[productId] = { productId, productName, totalSales, totalOrders };
         }
       });
       return acc;
     }, {});
+    
+    // Return array of product sales reports
+    return Object.values(reports);
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({ message: "Error fetching sales reports by product" });
+    // In a dashboard function, better to throw or return an empty array than send HTTP error
+    throw new Error("Error fetching sales reports by product: " + err.message); 
   }
 }
 
 async function getDailyPaymentReport() {
   try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const paymentReport = await Payment.aggregate([
       {
         $match: {
-          createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          createdAt: { $gte: sevenDaysAgo },
         },
       },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-          totalPaid: { $sum: "$amount" },
+          totalPaid: { $sum: { $ifNull: ["$amount", 0] } },
         },
       },
+      { $sort: { _id: 1 } }
     ]);
     return paymentReport;
   } catch (error) {
@@ -235,18 +252,21 @@ async function getDailyPaymentReport() {
 
 async function getDailyStockReport() {
   try {
+    // Note: Stock reports on a daily basis are tricky with Mongoose. This uses the last update time.
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const stockReport = await Product.aggregate([
       {
         $match: {
-          updatedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          updatedAt: { $gte: sevenDaysAgo },
         },
       },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$updatedAt" } },
-          totalQuantity: { $sum: "$quantity" },
+          totalQuantity: { $sum: { $ifNull: ["$quantity", 0] } },
         },
       },
+      { $sort: { _id: 1 } }
     ]);
     return stockReport;
   } catch (error) {
@@ -258,7 +278,7 @@ async function getTotalPaymentReceived() {
   try {
     const payments = await Payment.find().select("amount");
     const totalPaymentReceived = payments.reduce(
-      (acc, payment) => acc + payment.amount,
+      (acc, payment) => acc + toNum(payment.amount),
       0
     );
     return totalPaymentReceived;
@@ -269,9 +289,8 @@ async function getTotalPaymentReceived() {
 }
 async function getTotalNumberOfPayments() {
   try {
-    const payments = await Payment.find();
-    const totalNumberOfPayments = payments.length;
-    return totalNumberOfPayments;
+    const count = await Payment.countDocuments();
+    return count;
   } catch (error) {
     console.error(error);
     throw error;
@@ -282,10 +301,10 @@ async function getAveragePaymentAmount() {
   try {
     const payments = await Payment.find().select("amount");
     const totalPaymentAmount = payments.reduce(
-      (acc, payment) => acc + payment.amount,
+      (acc, payment) => acc + toNum(payment.amount),
       0
     );
-    const averagePaymentAmount = totalPaymentAmount / payments.length;
+    const averagePaymentAmount = payments.length > 0 ? totalPaymentAmount / payments.length : 0;
     return averagePaymentAmount;
   } catch (error) {
     console.error(error);
@@ -297,25 +316,48 @@ async function getAveragePaymentAmount() {
 
 router.get("/all-data", async (req, res) => {
   try {
-    const totalBilledAmount = await getTotalBilledAmount();
-    const numberOfInvoices = await getNumberOfInvoices();
-    const averageInvoiceValue = await getAverageInvoiceValue();
-    const recentInvoices = await getRecentInvoices();
-    const topClients = await getTopClients();
-    const overdueInvoices = await getOverdueInvoices();
-    const totalUnbilledPayment = await getTotalUnbilledPayment();
-    const lowInventoryProducts = await getLowInventoryProducts();
-    const outOfStockProducts = await getOutOfStockProducts();
-    const salesReport = await getSalesReport();
-    const dailySalesReport = await getDailySalesReport();
-    const dailyPaymentReport = await getDailyPaymentReport();
-    const dailyStockReport = await getDailyStockReport();
-    const totalPaymentRecived = await getTotalPaymentReceived();
-    const totalNumberOfPayments = await getTotalNumberOfPayments();
-    const averagePaymentAmount = await getAveragePaymentAmount();
-    const totalquantity = await getProductinventory();
-    const productinventory = await getProductviseinventory();
-    const productsalsereport = await productsalsereport1();
+    const [
+        totalBilledAmount, 
+        numberOfInvoices, 
+        averageInvoiceValue, 
+        recentInvoices, 
+        topClients, 
+        overdueInvoices, 
+        totalUnbilledPayment, 
+        lowInventoryProducts, 
+        outOfStockProducts, 
+        salesReport, 
+        dailySalesReport, 
+        dailyPaymentReport, 
+        dailyStockReport, 
+        totalPaymentReceived, 
+        totalNumberOfPayments, 
+        averagePaymentAmount, 
+        totalquantity,
+        productinventory,
+        productsalsereport
+    ] = await Promise.all([
+        getTotalBilledAmount(),
+        getNumberOfInvoices(),
+        getAverageInvoiceValue(),
+        getRecentInvoices(),
+        getTopClients(),
+        getOverdueInvoices(),
+        getTotalUnbilledPayment(),
+        getLowInventoryProducts(),
+        getOutOfStockProducts(),
+        getSalesReport(),
+        getDailySalesReport(),
+        getDailyPaymentReport(),
+        getDailyStockReport(),
+        getTotalPaymentReceived(),
+        getTotalNumberOfPayments(),
+        getAveragePaymentAmount(),
+        getProductinventory(),
+        getProductviseinventory(),
+        getProductSalesReports() // *** FIXED FUNCTION CALL ***
+    ]);
+
 
     const allData = {
       totalquantity,
@@ -333,19 +375,20 @@ router.get("/all-data", async (req, res) => {
       dailySalesReport,
       dailyPaymentReport,
       dailyStockReport,
-      totalPaymentRecived,
+      totalPaymentReceived,
       totalNumberOfPayments,
       averagePaymentAmount,
       productsalsereport,
-      noofoverdueInvoices: numberOfInvoices - totalNumberOfPayments,
+      // Recalculating these based on fetched data for consistency
+      noofoverdueInvoices: overdueInvoices.length, 
       nooflowInventoryProducts: lowInventoryProducts.length,
       noofoutOfStockProducts: outOfStockProducts.length,
     };
 
     res.json(allData);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error fetching all data" });
+    console.error("Error fetching all dashboard data:", error);
+    res.status(500).json({ message: "Error fetching all data", details: error.message });
   }
 });
 module.exports = router;

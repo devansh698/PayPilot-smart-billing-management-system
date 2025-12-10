@@ -3,10 +3,10 @@ import api from "../../api";
 import ClientLayout from "./ClientLayout";
 import { Link } from "react-router-dom";
 import { Plus, Search } from "lucide-react";
-import { Card } from "../ui/Card";
-import { Button } from "../ui/Button";
-import { Input } from "../ui/Input";
-import { Badge } from "../ui/Badge";
+import { Card } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Badge } from "../ui/badge";
 
 const ClientOrders = () => {
   const [orders, setOrders] = useState([]);

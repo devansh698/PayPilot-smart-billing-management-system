@@ -46,21 +46,29 @@ const validateProduct = (req, res, next) => {
     updateFields.brand = brand.trim();
   }
   if (quantity) {
-    updateFields.quantity = quantity;
+    // Convert quantity to number and validate
+    const numQuantity = Number(quantity);
+    if (!isNaN(numQuantity) && numQuantity >= 0) {
+        updateFields.quantity = numQuantity;
+    } else if(quantity !== undefined) {
+         return res.status(400).json({ error: "Quantity must be a valid non-negative number." });
+    }
   }
 
 
-  if (Object.keys(updateFields).length === 0) {
-    return res.status(400).json({ error: "At least one field is required" });
+  if (Object.keys(updateFields).length === 0 && !req.file) { 
+    return res.status(400).json({ error: "At least one field or an image is required" });
   }
+
+  req.validatedUpdateFields = updateFields;
 
   next();
 };
 
 router.post("/", upload.single("image"), validateProduct, async (req, res) => {
   try {
-    const { name, price, description, category, brand } = req.body;
-    const image = req.file.filename;
+    const { name, price, description, category, brand, quantity } = req.validatedUpdateFields; 
+    const image = req.file ? req.file.filename : null;
 
     const product = new Product({
       name,
@@ -69,21 +77,58 @@ router.post("/", upload.single("image"), validateProduct, async (req, res) => {
       category,
       brand,
       image,
+      quantity: quantity || 0,
     });
 
     await product.save();
 
-    res.json({ message: "Product created successfully" });
+    res.json({ message: "Product created successfully", product });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
+// Get all products with pagination, sorting, and filtering
 router.get("/", async (req, res) => {
   try {
-    const products = await Product.find();
-    res.json(products);
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', search = '', category, brand } = req.query;
+
+    const sort = {};
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+    const filter = {};
+    if (search) {
+        filter.$or = [
+            { name: { $regex: search, $options: 'i' } },
+            { description: { $regex: search, $options: 'i' } },
+            { category: { $regex: search, $options: 'i' } },
+            { brand: { $regex: search, $options: 'i' } },
+        ];
+    }
+
+    if (category) {
+        filter.category = category;
+    }
+
+    if (brand) {
+        filter.brand = brand;
+    }
+
+
+    const products = await Product.find(filter)
+      .sort(sort)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
+
+    const totalProducts = await Product.countDocuments(filter);
+
+    res.json({
+        products,
+        totalPages: Math.ceil(totalProducts / parseInt(limit)),
+        currentPage: parseInt(page),
+        totalProducts,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
@@ -107,41 +152,25 @@ router.get("/:id", async (req, res) => {
 router.put("/:id", upload.single("image"), validateProduct, async (req, res) => {
   try {
     const id = req.params.id;
-    const updateFields = {};
+    const updateFields = req.validatedUpdateFields;
 
     if (req.file) {
       updateFields.image = req.file.filename;
     }
-
-    if (req.body.name) {
-      updateFields.name = req.body.name.trim();
-    }
-    if (req.body.description) {
-      updateFields.description = req.body.description.trim();
-    }
-    if (req.body.category) {
-      updateFields.category = req.body.category.trim();
-    }
-    if (req.body.brand) {
-      updateFields.brand = req.body.brand.trim();
-    }
-    if (req.body.quantity) {
-      updateFields.quantity = req.body.quantity;
-    }
-
-
+    
     const product = await Product.findByIdAndUpdate(id, updateFields, {
       new: true,
+      runValidators: true, 
     });
 
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    res.json({ message: "Product updated successfully" });
+    res.json({ message: "Product updated successfully", product });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: "Internal Server Error", details: error.message });
   }
 });
 
@@ -158,13 +187,14 @@ router.delete("/:id", async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 router.patch("/:id", async (req, res) =>{
   const id = req.params.id;
   const updateData = req.body;
   console.log("id",id,updateData);
   try {
     const product= await Product.findByIdAndUpdate(id,updateData,
-        { new: true });
+        { new: true, runValidators: true });
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
