@@ -53,6 +53,11 @@ const invoiceSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  store: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Store',
+    required: true,
+  },
 });
 
 module.exports = mongoose.model('Invoice', invoiceSchema);

@@ -4,6 +4,7 @@ import { Container, Table, Button, Card, CardBody, Badge } from 'reactstrap';
 import { FaEdit, FaTrash, FaBoxOpen, FaSearch } from 'react-icons/fa'; // Added FaSearch
 import { toast } from 'react-toastify';
 import { Link } from 'react-router-dom';
+import { useStore } from '../context/StoreContext';
 
 const ProductList = () => {
     const [products, setProducts] = useState([]);
@@ -11,19 +12,35 @@ const ProductList = () => {
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const { currentStore } = useStore();
     
     const PAGE_LIMIT = 10;
 
     useEffect(() => {
-        // Re-fetch products whenever currentPage or searchTerm changes
         fetchProducts(currentPage, searchTerm);
-    }, [currentPage, searchTerm]);
+        
+        // Listen for store filter changes
+        const handleStoreFilterChange = () => {
+            fetchProducts(1, searchTerm); // Reset to page 1 when filter changes
+        };
+        window.addEventListener('storeFilterChanged', handleStoreFilterChange);
+        
+        return () => {
+            window.removeEventListener('storeFilterChanged', handleStoreFilterChange);
+        };
+    }, [currentPage, searchTerm, currentStore]);
 
     const fetchProducts = async (page, search) => {
         setLoading(true);
         try {
+            // Build query parameters including store filter
+            let queryParams = `page=${page}&limit=${PAGE_LIMIT}&search=${search}`;
+            if (currentStore && currentStore._id) {
+                queryParams += `&store=${currentStore._id}`;
+            }
+            
             // Use pagination and search query parameters
-            const res = await api.get(`/product/?page=${page}&limit=${PAGE_LIMIT}&search=${search}`);
+            const res = await api.get(`/product/?${queryParams}`);
             
             // FIX: Extract the product array from the paginated response
             setProducts(res.data.products || []);

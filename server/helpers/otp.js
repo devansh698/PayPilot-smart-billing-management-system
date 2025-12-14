@@ -1,32 +1,30 @@
-const express = require("express");
 const nodemailer = require("nodemailer");
-try{
-    exports.sendOtpMail = async (email,otp) => {
-  const Auth={ user: process.env.USER1, pass: process.env.PASS1 };
-    const mail = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: Auth,
-      timeout: 500000,
-    });
-  
-    mail.sendMail(
-      {
-        from: process.env.USER1,
-        to: [email],
-        subject: "Trying to login",
-        html: `otp for login your account ${otp}`,
-      },
-      (err) => {
-        if (err) throw err;
-        console.log(`Mail sent to ${email}`);
+const { getOtpEmailTemplate } = require("./emailTemplates");
+
+exports.sendOtpMail = async (email, otp) => {
+    try {
+        const Auth = { user: process.env.USER1, pass: process.env.PASS1 };
+        const mail = nodemailer.createTransport({
+            host: "smtp.gmail.com",
+            port: 587,
+            secure: false,
+            auth: Auth,
+            timeout: 500000,
+        });
+
+        const htmlContent = getOtpEmailTemplate(otp);
+
+        await mail.sendMail({
+            from: `PayPilot <${process.env.USER1}>`,
+            to: email,
+            subject: "PayPilot - OTP Verification",
+            html: htmlContent,
+        });
+
+        console.log(`OTP mail sent to ${email}`);
         return true;
-      }
-    );
-    return true;
-  };
-}
-catch(err){
-    console.log(err);
-}
+    } catch (err) {
+        console.error("Error sending OTP mail:", err);
+        throw err;
+    }
+};

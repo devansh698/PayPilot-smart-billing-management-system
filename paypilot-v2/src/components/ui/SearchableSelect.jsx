@@ -39,8 +39,10 @@ const SearchableSelect = ({ options, value, onChange, placeholder = "Select...",
         </div>
 
         {isOpen && (
-          <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95">
-            <div className="flex items-center border-b px-3 sticky top-0 bg-popover">
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
+            <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border-2 border-border bg-card dark:bg-gray-900 text-foreground shadow-2xl animate-in fade-in-0 zoom-in-95">
+              <div className="flex items-center border-b border-border px-3 sticky top-0 bg-card dark:bg-gray-900">
               <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
               <input
                 className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
@@ -72,7 +74,8 @@ const SearchableSelect = ({ options, value, onChange, placeholder = "Select...",
                 ))
               )}
             </div>
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>

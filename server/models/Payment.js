@@ -33,6 +33,11 @@ const paymentSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  store: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Store',
+    required: true,
+  },
 });
 
 module.exports = mongoose.model("Payment", paymentSchema);

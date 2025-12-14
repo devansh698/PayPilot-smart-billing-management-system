@@ -1,181 +1,193 @@
-import React, { useState, useEffect } from "react";
-import api from "../../api";
-import ClientLayout from "./ClientLayout";
-import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
-import { ArrowLeft, Plus, ShoppingCart, Trash2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import SearchableSelect from "../ui/SearchableSelect";
+import React, { useState, useEffect } from 'react';
+import { Container, Form, FormGroup, Label, Input, Button, Card, CardBody, CardHeader, CardTitle, Alert, Table, Row, Col } from 'reactstrap';
+import api from '../../api';
+import { toast } from 'react-toastify';
+import { FiPlus, FiTrash2, FiSave, FiShoppingCart } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
 
 const CreateOrder = () => {
-  const [products, setProducts] = useState([]);
-  const [cart, setCart] = useState([]);
-  const [selectedProductId, setSelectedProductId] = useState("");
-  const navigate = useNavigate();
+    const navigate = useNavigate();
+    const [products, setProducts] = useState([]);
+    const [lineItems, setLineItems] = useState([]);
+    const [subtotal, setSubtotal] = useState(0);
+    const [taxRate, setTaxRate] = useState(10); // Default tax rate
+    const [totalAmount, setTotalAmount] = useState(0);
+    const [selectedProductId, setSelectedProductId] = useState('');
+    const [quantity, setQuantity] = useState(1);
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
     // Fetch available products
-    api.get("/product/").then(res => setProducts(res.data)).catch(console.error);
-  }, []);
+    useEffect(() => {
+        api.get('/product?limit=1000') // Fetch all products for selection
+            .then(res => setProducts(res.data.products || []))
+            .catch(() => toast.error("Failed to load products."))
+            .finally(() => setLoading(false));
+    }, []);
 
-  const productOptions = products.map(p => ({
-      value: p._id,
-      label: `${p.name} - $${p.price}`
-  }));
+    // Calculate totals whenever lineItems or taxRate changes
+    useEffect(() => {
+        const newSubtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
+        const tax = newSubtotal * (taxRate / 100);
+        const newTotalAmount = newSubtotal + tax;
 
-  const handleAddToCart = () => {
-      if (!selectedProductId) return;
-      const product = products.find(p => p._id === selectedProductId);
-      if (!product) return;
+        setSubtotal(newSubtotal);
+        setTotalAmount(newTotalAmount);
+    }, [lineItems, taxRate]);
 
-      const existing = cart.find(item => item._id === product._id);
-      if (existing) {
-          setCart(cart.map(item => item._id === product._id ? { ...item, qty: item.qty + 1 } : item));
-      } else {
-          setCart([...cart, { ...product, qty: 1 }]);
-      }
-      setSelectedProductId(""); // Reset selection
-  };
+    const handleAddItem = () => {
+        const product = products.find(p => p._id === selectedProductId);
+        const qty = Number(quantity);
+        
+        if (!product || qty <= 0) return toast.warning("Please select a product and valid quantity.");
 
-  const removeFromCart = (id) => {
-      setCart(cart.filter(item => item._id !== id));
-  };
+        // NOTE: Stock check is performed by the backend on submission, 
+        // but a client-side warning is helpful.
+        if (product.quantity < qty) {
+            toast.error(`Only ${product.quantity} units of ${product.name} are available.`);
+            return;
+        }
 
-  const updateQty = (id, newQty) => {
-      if (newQty < 1) return;
-      setCart(cart.map(item => item._id === id ? { ...item, qty: newQty } : item));
-  };
+        const newItem = {
+            productId: product._id,
+            name: product.name,
+            price: product.price,
+            quantity: qty,
+            amount: product.price * qty,
+        };
 
-  const calculateTotal = () => {
-      return cart.reduce((acc, item) => acc + (item.price * item.qty), 0).toFixed(2);
-  };
+        setLineItems([...lineItems, newItem]);
+        setSelectedProductId('');
+        setQuantity(1);
+    };
 
-  const handleSubmit = async () => {
-      if (cart.length === 0) return toast.error("Cart is empty");
-      
-      const orderData = {
-          products: cart.map(i => ({ product: i._id, quantity: i.qty })),
-          totalAmount: calculateTotal()
-      };
+    const handleRemoveItem = (index) => {
+        setLineItems(lineItems.filter((_, i) => i !== index));
+    };
 
-      try {
-          await api.post("/client/orders", orderData);
-          toast.success("Order placed successfully!");
-          navigate("/client-orders");
-      } catch (err) {
-          toast.error("Failed to place order");
-      }
-  };
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (lineItems.length === 0) return toast.error("Please add at least one item to the order.");
 
-  return (
-    <ClientLayout>
-      <div className="space-y-6 max-w-5xl mx-auto">
-        <div className="flex items-center gap-4">
-            <Button variant="outline" size="icon" onClick={() => navigate(-1)}>
-                <ArrowLeft size={18} />
-            </Button>
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight text-foreground">Create New Order</h1>
-                <p className="text-muted-foreground mt-1">Select products and place your order.</p>
-            </div>
-        </div>
+        const payload = {
+            products: lineItems.map(item => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                price: item.price,
+                amount: item.amount,
+            })),
+            subtotal: subtotal,
+            tax: subtotal * (taxRate / 100),
+            totalAmount: totalAmount,
+        };
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Selection Area */}
-            <div className="md:col-span-2 space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Add Products</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex gap-2 items-end">
-                            <div className="flex-1">
-                                <SearchableSelect 
-                                    label="Search Product"
-                                    options={productOptions}
-                                    value={selectedProductId}
-                                    onChange={setSelectedProductId}
-                                    placeholder="Type to search products..."
-                                />
-                            </div>
-                            <Button onClick={handleAddToCart} className="mb-[2px]">
-                                <Plus size={16} className="mr-2" /> Add to Cart
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
+        try {
+            // FIX: Submit to the client portal route
+            await api.post('/clients/orders', payload);
+            toast.success("Order placed successfully! Pending admin approval.");
+            navigate('/client-portal/orders');
+        } catch (error) {
+            // Backend handles stock check and returns 400 if insufficient
+            toast.error(error.response?.data?.message || "Failed to place order. Check product stock.");
+        }
+    };
 
-                {/* Popular/All Products Grid (Optional visual aid) */}
-                <div>
-                    <h3 className="text-lg font-semibold mb-3">Available Products</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {products.slice(0, 6).map(product => (
-                            <div key={product._id} className="p-4 bg-card border border-border rounded-lg flex justify-between items-center hover:shadow-sm transition-shadow cursor-pointer" onClick={() => { setSelectedProductId(product._id); }}>
-                                <div>
-                                    <p className="font-medium">{product.name}</p>
-                                    <p className="text-sm text-muted-foreground">${product.price}</p>
-                                </div>
-                                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); setSelectedProductId(product._id); handleAddToCart(); }}>
-                                    Add
+    if (loading) return <Container className="mt-5"><p>Loading order form...</p></Container>;
+
+    return (
+        <Container className="mt-5">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="d-flex align-items-center">
+                        <FiShoppingCart className="me-2" /> Place New Order
+                    </CardTitle>
+                </CardHeader>
+                <CardBody>
+                    <Form onSubmit={handleSubmit}>
+                        <Row className="mb-4 p-3 bg-light rounded border">
+                            <Col md={5} className="mb-3 mb-md-0">
+                                <FormGroup>
+                                    <Label for="productSelect">Select Product</Label>
+                                    <Input type="select" name="productSelect" id="productSelect" value={selectedProductId} onChange={e => setSelectedProductId(e.target.value)}>
+                                        <option value="">-- Choose Product --</option>
+                                        {products.map(p => (
+                                            <option key={p._id} value={p._id}>
+                                                {p.name} (₹{p.price.toFixed(2)}) - Stock: {p.quantity}
+                                            </option>
+                                        ))}
+                                    </Input>
+                                </FormGroup>
+                            </Col>
+                            <Col md={3}>
+                                <FormGroup>
+                                    <Label for="quantityInput">Quantity</Label>
+                                    <Input type="number" name="quantityInput" id="quantityInput" min="1" value={quantity} onChange={e => setQuantity(e.target.value)} />
+                                </FormGroup>
+                            </Col>
+                            <Col md={4} className="d-flex align-items-end">
+                                <Button color="secondary" onClick={handleAddItem} disabled={!selectedProductId || quantity <= 0} className="w-100">
+                                    <FiPlus /> Add Item
                                 </Button>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
+                            </Col>
+                        </Row>
 
-            {/* Cart Summary */}
-            <div className="md:col-span-1">
-                <Card className="sticky top-6">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <ShoppingCart size={20} /> Your Cart
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {cart.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-6">Your cart is empty.</p>
-                        ) : (
-                            <div className="space-y-3">
-                                {cart.map(item => (
-                                    <div key={item._id} className="flex justify-between items-center bg-muted/30 p-2 rounded">
-                                        <div className="flex-1">
-                                            <p className="font-medium text-sm">{item.name}</p>
-                                            <p className="text-xs text-muted-foreground">${item.price} x {item.qty}</p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Input 
-                                                type="number" className="h-7 w-12 px-1 text-center" 
-                                                value={item.qty} onChange={(e) => updateQty(item._id, parseInt(e.target.value))}
-                                            />
-                                            <button onClick={() => removeFromCart(item._id)} className="text-destructive hover:bg-destructive/10 p-1 rounded">
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                        {lineItems.length > 0 && (
+                            <Table bordered responsive size="sm" className="mb-4">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Rate</th>
+                                        <th>Qty</th>
+                                        <th>Amount</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {lineItems.map((item, index) => (
+                                        <tr key={index}>
+                                            <td>{item.name}</td>
+                                            <td>₹{item.price.toFixed(2)}</td>
+                                            <td>{item.quantity}</td>
+                                            <td>₹{item.amount.toFixed(2)}</td>
+                                            <td>
+                                                <Button size="sm" color="danger" outline onClick={() => handleRemoveItem(index)}>
+                                                    <FiTrash2 />
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </Table>
                         )}
-                        
-                        <div className="border-t border-border pt-4 mt-4">
-                            <div className="flex justify-between items-center mb-4">
-                                <span className="font-bold">Total:</span>
-                                <span className="text-xl font-bold text-primary">${calculateTotal()}</span>
+
+                        {/* Totals Summary */}
+                        <div className="d-flex justify-content-end">
+                            <div style={{ width: '300px' }}>
+                                <div className="d-flex justify-content-between">
+                                    <span>Subtotal:</span>
+                                    <span>₹{subtotal.toFixed(2)}</span>
+                                </div>
+                                <div className="d-flex justify-content-between">
+                                    <span>Tax ({taxRate}%):</span>
+                                    <span>₹{(subtotal * (taxRate / 100)).toFixed(2)}</span>
+                                </div>
+                                <hr />
+                                <div className="d-flex justify-content-between fw-bold fs-5">
+                                    <span>Total:</span>
+                                    <span>₹{totalAmount.toFixed(2)}</span>
+                                </div>
                             </div>
-                            <Button className="w-full" size="lg" onClick={handleSubmit} disabled={cart.length === 0}>
-                                Place Order
+                        </div>
+
+                        <div className="d-flex justify-content-end mt-4">
+                            <Button type="submit" color="success" size="lg" disabled={lineItems.length === 0}>
+                                <FiSave className="me-2" /> Submit Order
                             </Button>
                         </div>
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
-      </div>
-    </ClientLayout>
-  );
+                    </Form>
+                </CardBody>
+            </Card>
+        </Container>
+    );
 };
 
 export default CreateOrder;

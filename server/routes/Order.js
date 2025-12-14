@@ -8,6 +8,7 @@ const authMiddleware = require('../middlewares/authMiddleware'); // Import the a
 // Apply middleware to all routes in this router
 router.use(authMiddleware);
 
+
 // Get all notifications with pagination, sorting, and filtering
 // Assumes this route is for Admin view, or a client view that filters by user ID based on req.user._id
 router.get('/', async (req, res) => {

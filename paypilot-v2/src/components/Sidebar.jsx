@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
     LayoutDashboard, FileText, Users, Package, ShoppingCart, 
-    CreditCard, User, BarChart3, Box, LogOut, ChevronDown 
+    CreditCard, User, BarChart3, Box, LogOut, ChevronDown, Store, Settings
 } from 'lucide-react';
 import { cn } from '../lib/utils'; // Make sure you created this in Step 4
 import axios from 'axios';
@@ -44,6 +44,8 @@ const Sidebar = ({ className }) => {
         { path: '/create-new-payment', label: 'Payments', icon: <CreditCard size={20} />, role: 'Payment Manager' },
         { path: '/report-generator', label: 'Reports', icon: <BarChart3 size={20} />, role: 'Report Manager' },
         { path: '/employee-manager', label: 'Employees', icon: <User size={20} />, role: 'Employee Manager' },
+        { path: '/store-list', label: 'Stores', icon: <Store size={20} />, role: 'admin' },
+        { path: '/settings', label: 'Settings', icon: <Settings size={20} /> },
     ];
 
     const hasPermission = (requiredRole) => {
@@ -129,7 +131,13 @@ const Sidebar = ({ className }) => {
 
             {/* Footer */}
             <div className="p-4 border-t border-sidebar-border">
-                <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-sm text-sidebar-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
+                <button 
+                    onClick={() => {
+                        localStorage.removeItem("token");
+                        window.location.href = "/login";
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-sm text-sidebar-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                >
                     <LogOut size={18} />
                     Logout
                 </button>

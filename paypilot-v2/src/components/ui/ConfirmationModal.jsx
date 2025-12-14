@@ -6,10 +6,10 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, confirm
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-card w-full max-w-md rounded-xl shadow-lg border border-border p-6 space-y-4 scale-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 dark:bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="bg-card dark:bg-gray-900 w-full max-w-md rounded-xl shadow-2xl border-2 border-border p-6 space-y-4 scale-100">
         <div className="flex items-center gap-4">
-          <div className={`p-3 rounded-full ${isDestructive ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'}`}>
+          <div className={`p-3 rounded-full ${isDestructive ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400'}`}>
             <AlertTriangle size={24} />
           </div>
           <div>

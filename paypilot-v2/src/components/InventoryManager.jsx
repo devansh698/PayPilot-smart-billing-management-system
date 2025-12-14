@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../api";
-import { Search, AlertTriangle, ArrowUpRight, ArrowDownRight, RefreshCw } from "lucide-react";
+import { Search, AlertTriangle, ArrowUpRight, ArrowDownRight, RefreshCw, Plus, Save } from "lucide-react";
 import { toast } from "react-toastify";
 import { Card, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
@@ -8,13 +8,14 @@ import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 
 const InventoryManager = () => {
-  const [stockData, setStockData] = useState([]);
+    const [stockData, setStockData] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+    const [stockToAdd, setStockToAdd] = useState({}); // New state to manage quantity to add per product
 
-  useEffect(() => {
+    useEffect(() => {
     fetchStock(currentPage, searchTerm);
   }, [currentPage, searchTerm]);
 
@@ -34,17 +35,28 @@ const InventoryManager = () => {
     }
   };
 
-  const updateStock = async (id, newQuantity) => {
-    try {
-        // FIX 2: Change PUT to PATCH and send 'quantity' field to match backend route
-        await api.patch(`/product/${id}`, { quantity: newQuantity }); 
-        toast.success("Stock updated");
-        fetchStock(currentPage, searchTerm); // Refresh list
-    } catch (err) {
-        toast.error("Update failed");
-    }
-  };
+    const updateStock = async (id, quantity, type = 'adjust') => {
+        const item = stockData.find(i => i._id === id);
+        let newQuantity = item.quantity;
+        
+        if (type === 'add') {
+            const addAmount = Number(stockToAdd[id]) || 0;
+            if (addAmount <= 0) return toast.warning("Enter a valid quantity to add.");
+            newQuantity = item.quantity + addAmount;
+        }
 
+        try {
+            // Use PATCH method and 'quantity' field
+            await api.patch(`/product/${id}`, { quantity: newQuantity }); 
+            toast.success(type === 'add' ? `Added ${stockToAdd[id]} units to stock` : "Stock updated");
+            
+            setStockToAdd(prev => ({ ...prev, [id]: '' })); // Clear input
+            fetchStock(currentPage, searchTerm); // Refresh list
+        } catch (err) {
+            toast.error(err.response?.data?.error || "Update failed");
+        }
+    };
+    
   // Filtering is now handled by the backend search query
   const filteredStock = stockData.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -56,8 +68,8 @@ const InventoryManager = () => {
   const lowStockCount = allProducts.filter(i => i.quantity < lowStockThreshold).length;
   const outOfStockCount = allProducts.filter(i => i.quantity === 0).length;
 
-  return (
-    <div className="space-y-6">
+    return (
+        <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Stock Management</h1>
@@ -87,7 +99,7 @@ const InventoryManager = () => {
         </Card>
       </div>
 
-      <Card>
+            <Card>
         <div className="p-6 border-b border-border">
              <div className="relative max-w-sm">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
@@ -102,17 +114,17 @@ const InventoryManager = () => {
                 />
             </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-muted/50 text-muted-foreground font-medium">
-              <tr>
-                <th className="px-6 py-3">Product Name</th>
-                <th className="px-6 py-3">Current Stock</th>
-                <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3 text-right">Quick Adjust</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-muted/50 text-muted-foreground font-medium">
+                            <tr>
+                                <th className="px-6 py-3">Product Name</th>
+                                <th className="px-6 py-3">Current Stock</th>
+                                <th className="px-6 py-3">Status</th>
+                                <th className="px-6 py-3 text-right">Adjust Stock</th> {/* Renamed column */}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
                     <td colSpan="4" className="px-6 py-8 text-center text-muted-foreground">Loading inventory...</td>
@@ -120,14 +132,14 @@ const InventoryManager = () => {
               ) : stockData.length > 0 ? (
                 stockData.map((item) => (
                     // FIX 3: Use item.quantity instead of item.stock
-                    <tr key={item._id} className="hover:bg-muted/50 transition-colors">
-                        <td className="px-6 py-4 font-medium">{item.name}</td>
-                        <td className="px-6 py-4">
-                            <span className={`font-bold ${item.quantity < lowStockThreshold ? 'text-red-600' : 'text-foreground'}`}>
-                                {item.quantity}
-                            </span>
-                        </td>
-                        <td className="px-6 py-4">
+                                <tr key={item._id} className="hover:bg-muted/50 transition-colors">
+                                    <td className="px-6 py-4 font-medium">{item.name}</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`font-bold ${item.quantity < 10 ? 'text-red-600' : 'text-foreground'}`}>
+                                            {item.quantity}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
                             {item.quantity === 0 ? (
                                 <Badge variant="destructive">Out of Stock</Badge>
                             ) : item.quantity < lowStockThreshold ? (
@@ -137,38 +149,38 @@ const InventoryManager = () => {
                             ) : (
                                 <Badge variant="success">In Stock</Badge>
                             )}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                            <div className="flex justify-end gap-2">
-                                <Button 
-                                    variant="outline" 
-                                    size="icon" 
-                                    className="h-8 w-8" 
-                                    onClick={() => updateStock(item._id, Math.max(0, item.quantity - 1))}
-                                    disabled={item.quantity === 0}
-                                >
-                                    <ArrowDownRight size={14} />
-                                </Button>
-                                <Button 
-                                    variant="outline" 
-                                    size="icon" 
-                                    className="h-8 w-8" 
-                                    onClick={() => updateStock(item._id, item.quantity + 1)}
-                                >
-                                    <ArrowUpRight size={14} />
-                                </Button>
-                            </div>
-                        </td>
-                    </tr>
+                                    </td>
+                                    {/* FIX: New Add Stock controls */}
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="flex justify-end gap-2 items-center">
+                                            <Input
+                                                type="number"
+                                                min="1"
+                                                placeholder="+ Qty"
+                                                className="w-24 h-8 text-right"
+                                                value={stockToAdd[item._id] || ''}
+                                                onChange={(e) => setStockToAdd(prev => ({ ...prev, [item._id]: e.target.value }))}
+                                            />
+                                            <Button 
+                                                size="sm" 
+                                                className="h-8" 
+                                                onClick={() => updateStock(item._id, null, 'add')}
+                                                disabled={!stockToAdd[item._id] || Number(stockToAdd[item._id]) <= 0}
+                                            >
+                                                <Plus size={14} className="mr-1" /> Add
+                                            </Button>
+                                        </div>
+                                    </td>
+                                </tr>
                 ))
               ) : (
                 <tr>
                     <td colSpan="4" className="px-6 py-8 text-center text-muted-foreground">No products found.</td>
                 </tr>
               )}
-            </tbody>
-          </table>
-        </div>
+                        </tbody>
+                    </table>
+                </div>
         
         {/* Pagination Controls */}
         <div className="flex justify-between items-center p-6 border-t border-border">
@@ -192,9 +204,9 @@ const InventoryManager = () => {
                 </Button>
             </div>
         </div>
-      </Card>
-    </div>
-  );
+            </Card>
+        </div>
+    );
 };
 
 export default InventoryManager;

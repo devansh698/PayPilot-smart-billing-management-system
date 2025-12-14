@@ -1,30 +1,34 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Bell, User, Menu, LogOut, UserCircle } from "lucide-react";
+import { Search, Bell, User, Menu, LogOut, UserCircle, Moon, Sun, Settings } from "lucide-react";
 import api from "../api";
 import { toast } from "react-toastify";
 import { cn } from "../lib/utils";
+import { StoreSelectorWrapper } from "./StoreContextWrapper";
+import { useTheme } from "../context/ThemeContext";
 
 const Navbar = ({ onMenuClick, isMobile }) => {
+  const { theme, toggleTheme } = useTheme();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const navigate = useNavigate();
+  
+  // Note: StoreContext will be available via Provider
+  // This will be handled by the component using the hook directly
 
   const fetchNotifications = async () => {
     try {
-      // FIX 1 & 2: Fetch only unread notifications and specify limit for the dropdown.
+      // FIX: Request only unread notifications (isRead=false) and handle paginated response
       const res = await api.get('/notifications?limit=10&isRead=false&sortBy=createdAt&sortOrder=desc');
       
-      // FIX 1: Access the notifications array and total count from the paginated response object
-      const data = res.data.notifications || []; 
+      const data = res.data.notifications || [];
       const totalCount = res.data.totalCount || 0; 
       
       setNotifications(data);
       setUnreadCount(totalCount);
     } catch (error) {
-      // The 401 error is likely due to an expired token, but handling the response structure properly is necessary.
       if (error.response && error.response.status !== 401) {
         console.error("Failed to fetch notifications");
       }
@@ -52,6 +56,11 @@ const Navbar = ({ onMenuClick, isMobile }) => {
           </button>
         )}
         
+        {/* Store Filter for Superadmin, Store Selector for others */}
+        <div className="hidden md:block">
+          <StoreSelectorWrapper />
+        </div>
+        
         {/* Search Bar (Visual only to match reference) */}
         <div className="hidden md:block relative w-64">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
@@ -78,22 +87,27 @@ const Navbar = ({ onMenuClick, isMobile }) => {
 
           {/* Notifications Dropdown */}
           {showNotifMenu && (
-            <div className="absolute right-0 mt-2 w-80 bg-popover border border-border rounded-lg shadow-lg py-2 z-50">
-              <div className="px-4 py-2 border-b border-border font-semibold text-sm">Notifications ({unreadCount})</div>
-              <div className="max-h-64 overflow-y-auto">
-                {notifications.length > 0 ? (
-                  notifications.map((n, i) => (
-                    <div key={i} className="px-4 py-3 border-b border-border last:border-0 hover:bg-accent/50 cursor-pointer">
-                      <p className="text-sm text-foreground">{n.message}</p>
-                      {/* FIX 3: Use n.createdAt for consistency with backend date fields */}
-                      <p className="text-xs text-muted-foreground mt-1">{new Date(n.createdAt).toLocaleString()}</p> 
-                    </div>
-                  ))
-                ) : (
-                  <div className="px-4 py-4 text-center text-sm text-muted-foreground">No new notifications</div>
-                )}
+            <>
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowNotifMenu(false)}
+              ></div>
+              <div className="absolute right-0 mt-2 w-80 bg-card dark:bg-gray-900 border-2 border-border rounded-lg shadow-2xl py-2 z-50 backdrop-blur-sm">
+                <div className="px-4 py-2 border-b border-border font-semibold text-sm text-foreground bg-muted/50">Notifications ({unreadCount})</div>
+                <div className="max-h-64 overflow-y-auto">
+                  {notifications.length > 0 ? (
+                    notifications.map((n, i) => (
+                      <div key={i} className="px-4 py-3 border-b border-border last:border-0 hover:bg-accent/50 cursor-pointer transition-colors">
+                        <p className="text-sm text-foreground">{n.message}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{new Date(n.createdAt).toLocaleString()}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-4 py-4 text-center text-sm text-muted-foreground">No new notifications</div>
+                  )}
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
 
@@ -108,20 +122,41 @@ const Navbar = ({ onMenuClick, isMobile }) => {
 
           {/* Profile Dropdown */}
           {showProfileMenu && (
-            <div className="absolute right-0 mt-2 w-48 bg-popover border border-border rounded-lg shadow-lg py-1 z-50">
-              <button 
-                onClick={() => navigate('/profile')}
-                className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent flex items-center gap-2"
-              >
-                <UserCircle size={16} /> Profile
-              </button>
-              <button 
-                onClick={handleLogout}
-                className="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10 flex items-center gap-2"
-              >
-                <LogOut size={16} /> Logout
-              </button>
-            </div>
+            <>
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowProfileMenu(false)}
+              ></div>
+              <div className="absolute right-0 mt-2 w-48 bg-card dark:bg-gray-900 border-2 border-border rounded-lg shadow-2xl py-1 z-50 backdrop-blur-sm">
+                <button 
+                  onClick={() => { navigate('/settings'); setShowProfileMenu(false); }}
+                  className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent flex items-center gap-2 transition-colors"
+                >
+                  <Settings size={16} /> Settings
+                </button>
+                <button 
+                  onClick={() => { navigate('/profile'); setShowProfileMenu(false); }}
+                  className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent flex items-center gap-2 transition-colors"
+                >
+                  <UserCircle size={16} /> Profile
+                </button>
+                <div className="border-t border-border my-1"></div>
+                <button 
+                  onClick={() => { toggleTheme(); setShowProfileMenu(false); }}
+                  className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-accent flex items-center gap-2 transition-colors"
+                >
+                  {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                  {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                </button>
+                <div className="border-t border-border my-1"></div>
+                <button 
+                  onClick={handleLogout}
+                  className="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10 flex items-center gap-2 transition-colors"
+                >
+                  <LogOut size={16} /> Logout
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>

@@ -1,220 +1,95 @@
-// src/components/client/OrderDetailPage.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchOrderDetails } from '../api';
-import { 
-  Container, Card, CardBody, CardTitle, CardText, 
-  Button, Alert, Badge, Row, Col, Table 
-} from 'reactstrap';
-import { 
-  FiArrowLeft, FiPackage, FiTruck, FiCheckCircle, 
-  FiClock, FiDollarSign, FiInfo 
-} from 'react-icons/fi';
-import './OrderDetailPage.css';
+import { Container, Card, CardBody, CardHeader, CardTitle, Table, Alert, Button, Badge } from 'reactstrap';
+import api from '../../api';
+import { toast } from 'react-toastify';
+import { FiArrowLeft, FiTag, FiCalendar, FiDollarSign, FiPackage } from 'react-icons/fi';
 
-const OrderDetailPage = () => {
+const OrderDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
 
-    useEffect(() => {
-        const loadOrderDetails = async () => {
-            try {
-                const response = await fetchOrderDetails(id);
-                setOrder(response.data);
-                setLoading(false);
-            } catch (error) {
-                setError('Failed to fetch order details');
-                setLoading(false);
-            }
-        };
-        loadOrderDetails();
-    }, [id]);
-
-    const getStatusBadge = (status) => {
-        const statusMap = {
-            'pending': { color: 'warning', icon: <FiClock /> },
-            'processing': { color: 'info', icon: <FiPackage /> },
-            'shipped': { color: 'primary', icon: <FiTruck /> },
-            'delivered': { color: 'success', icon: <FiCheckCircle /> },
-            'cancelled': { color: 'danger', icon: <FiInfo /> }
-        };
-        const statusInfo = statusMap[status.toLowerCase()] || { color: 'secondary' };
-        return (
-            <Badge color={statusInfo.color} className="status-badge">
-                {statusInfo.icon} {status}
-            </Badge>
-        );
+    const fetchOrderDetails = async () => {
+        try {
+            // Fetch order details from the client portal route
+            const res = await api.get(`/clients/orders/${id}`);
+            setOrder(res.data);
+        } catch (error) {
+            toast.error("Failed to fetch order details.");
+        } finally {
+            setLoading(false);
+        }
     };
 
-    if (loading) {
-        return (
-            <Container className="order-detail-loading">
-                <div className="spinner"></div>
-                <p>Loading order details...</p>
-            </Container>
-        );
-    }
+    useEffect(() => {
+        fetchOrderDetails();
+    }, [id]);
 
-    if (error) {
-        return (
-            <Container className="order-detail-error">
-                <Alert color="danger">{error}</Alert>
-                <Button color="secondary" onClick={() => navigate(-1)}>
-                    <FiArrowLeft /> Back to Orders
-                </Button>
-            </Container>
-        );
-    }
+    if (loading) return <Container className="mt-5"><p>Loading order details...</p></Container>;
+    if (!order) return <Container className="mt-5"><Alert color="danger">Order not found or access denied.</Alert></Container>;
+
+    const getStatusColor = (status) => {
+        const s = status ? status.toLowerCase() : '';
+        if (s.includes('completed')) return 'success';
+        if (s.includes('accepted')) return 'primary';
+        if (s.includes('pending')) return 'warning';
+        return 'secondary';
+    };
 
     return (
-        <Container fluid className="order-detail">
-            <Button 
-                color="link" 
-                onClick={() => navigate(-1)}
-                className="back-btn"
-            >
-                <FiArrowLeft /> Back to Orders
-            </Button>
+        <Container className="mt-5">
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <h2>Order Details: #{order._id.slice(-6).toUpperCase()}</h2>
+                <Button color="secondary" outline onClick={() => navigate(-1)}>
+                    <FiArrowLeft className="me-2" /> Back to Orders
+                </Button>
+            </div>
+            
+            <Card className="mb-4">
+                <CardBody>
+                    <Row>
+                        <Col md={3}><p className="text-muted mb-0"><FiTag className="me-2" />Status:</p><h5 className="mb-0"><Badge color={getStatusColor(order.status)}>{order.status}</Badge></h5></Col>
+                        <Col md={3}><p className="text-muted mb-0"><FiCalendar className="me-2" />Date:</p><h5>{new Date(order.createdAt).toLocaleDateString()}</h5></Col>
+                        <Col md={3}><p className="text-muted mb-0"><FiDollarSign className="me-2" />Subtotal:</p><h5>₹{order.subtotal.toFixed(2)}</h5></Col>
+                        <Col md={3}><p className="text-muted mb-0"><FiDollarSign className="me-2" />Total:</p><h4 className="text-primary">₹{order.totalAmount.toFixed(2)}</h4></Col>
+                    </Row>
+                </CardBody>
+            </Card>
 
-            <Row className="page-header">
-                <Col>
-                    <h1>Order Details</h1>
-                    <p className="subtitle">Order ID: #{order._id.slice(-6)}</p>
-                </Col>
-                <Col className="text-right">
-                    {getStatusBadge(order.status)}
-                </Col>
-            </Row>
-
-            <Row>
-                <Col lg={8}>
-                    <Card className="order-card">
-                        <CardBody>
-                            <CardTitle tag="h5" className="card-title">
-                                <FiPackage className="title-icon" /> Order Items
-                            </CardTitle>
-                            <div className="table-responsive">
-                                <Table hover className="items-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Product</th>
-                                            <th>Quantity</th>
-                                            <th>Unit Price</th>
-                                            <th>Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {order.items.map(item => (
-                                            <tr key={item.productId}>
-                                                <td>
-                                                    <strong>{item.productName}</strong>
-                                                    {item.description && (
-                                                        <p className="item-description">{item.description}</p>
-                                                    )}
-                                                </td>
-                                                <td>{item.quantity}</td>
-                                                <td>Rs.{item.unitPrice.toFixed(2)}</td>
-                                                <td>Rs.{(item.quantity * item.unitPrice).toFixed(2)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                    <tfoot>
-                                        <tr>
-                                            <td colSpan="3" className="text-right">
-                                                <strong>Subtotal:</strong>
-                                            </td>
-                                            <td>
-                                                <strong>Rs.{order.subtotal.toFixed(2)}</strong>
-                                            </td>
-                                        </tr>
-                                        {order.tax > 0 && (
-                                            <tr>
-                                                <td colSpan="3" className="text-right">
-                                                    <strong>Tax ({order.taxRate}%):</strong>
-                                                </td>
-                                                <td>
-                                                    <strong>Rs.{order.tax.toFixed(2)}</strong>
-                                                </td>
-                                            </tr>
-                                        )}
-                                        {order.shipping > 0 && (
-                                            <tr>
-                                                <td colSpan="3" className="text-right">
-                                                    <strong>Shipping:</strong>
-                                                </td>
-                                                <td>
-                                                    <strong>Rs.{order.shipping.toFixed(2)}</strong>
-                                                </td>
-                                            </tr>
-                                        )}
-                                        <tr className="total-row">
-                                            <td colSpan="3" className="text-right">
-                                                <strong>Total:</strong>
-                                            </td>
-                                            <td>
-                                                <strong>Rs.{order.totalAmount.toFixed(2)}</strong>
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </Table>
-                            </div>
-                        </CardBody>
-                    </Card>
-                </Col>
-
-                <Col lg={4}>
-                    <Card className="info-card">
-                        <CardBody>
-                            <CardTitle tag="h5" className="card-title">
-                                <FiInfo className="title-icon" /> Order Information
-                            </CardTitle>
-                            <div className="info-section">
-                                <h6>Shipping Details</h6>
-                                <CardText>
-                                    <strong>Name:</strong> {order.shippingAddress.name}<br />
-                                    <strong>Address:</strong> {order.shippingAddress.address}<br />
-                                    {order.shippingAddress.address2 && (
-                                        <>{order.shippingAddress.address2}<br /></>
-                                    )}
-                                    <strong>City:</strong> {order.shippingAddress.city}<br />
-                                    <strong>State:</strong> {order.shippingAddress.state}<br />
-                                    <strong>Postal Code:</strong> {order.shippingAddress.postalCode}<br />
-                                    <strong>Phone:</strong> {order.shippingAddress.phone}
-                                </CardText>
-                            </div>
-
-                            <div className="info-section">
-                                <h6>Payment Information</h6>
-                                <CardText>
-                                    <strong>Method:</strong> {order.paymentMethod}<br />
-                                    <strong>Status:</strong> {order.paymentStatus}<br />
-                                    {order.paymentId && (
-                                        <><strong>Transaction ID:</strong> {order.paymentId}</>
-                                    )}
-                                </CardText>
-                            </div>
-
-                            <div className="info-section">
-                                <h6>Timeline</h6>
-                                <CardText>
-                                    <strong>Order Date:</strong> {new Date(order.createdAt).toLocaleString()}<br />
-                                    {order.shippedDate && (
-                                        <><strong>Shipped Date:</strong> {new Date(order.shippedDate).toLocaleString()}<br /></>
-                                    )}
-                                    {order.deliveredDate && (
-                                        <><strong>Delivered Date:</strong> {new Date(order.deliveredDate).toLocaleString()}</>
-                                    )}
-                                </CardText>
-                            </div>
-                        </CardBody>
-                    </Card>
-                </Col>
-            </Row>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="d-flex align-items-center">
+                        <FiPackage className="me-2" /> Ordered Items
+                    </CardTitle>
+                </CardHeader>
+                <CardBody>
+                    <Table responsive striped size="sm">
+                        <thead>
+                            <tr>
+                                <th>Product Name</th>
+                                <th>Quantity</th>
+                                <th>Rate</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {order.products.map((item, index) => (
+                                <tr key={index}>
+                                    {/* Product is not populated in the current clients/orders/:id route, so we use the name field if available, otherwise show ID */}
+                                    <td>{item.name || item.productId}</td> 
+                                    <td>{item.quantity}</td>
+                                    <td>₹{item.price?.toFixed(2) || 'N/A'}</td>
+                                    <td>₹{item.amount.toFixed(2)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </Table>
+                </CardBody>
+            </Card>
         </Container>
     );
 };
 
-export default OrderDetailPage;
+export default OrderDetails;

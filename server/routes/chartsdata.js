@@ -316,6 +316,17 @@ async function getAveragePaymentAmount() {
 
 router.get("/all-data", async (req, res) => {
   try {
+    const { store } = req.query;
+    const storeFilter = store && store !== 'all' ? { store } : {};
+
+    // Helper function to add store filter to queries
+    const addStoreFilter = (query) => {
+        if (Object.keys(storeFilter).length > 0) {
+            return { ...query, ...storeFilter };
+        }
+        return query;
+    };
+
     const [
         totalBilledAmount, 
         numberOfInvoices, 
@@ -337,25 +348,115 @@ router.get("/all-data", async (req, res) => {
         productinventory,
         productsalsereport
     ] = await Promise.all([
-        getTotalBilledAmount(),
-        getNumberOfInvoices(),
-        getAverageInvoiceValue(),
-        getRecentInvoices(),
-        getTopClients(),
-        getOverdueInvoices(),
-        getTotalUnbilledPayment(),
-        getLowInventoryProducts(),
-        getOutOfStockProducts(),
-        getSalesReport(),
-        getDailySalesReport(),
-        getDailyPaymentReport(),
-        getDailyStockReport(),
-        getTotalPaymentReceived(),
-        getTotalNumberOfPayments(),
-        getAveragePaymentAmount(),
-        getProductinventory(),
-        getProductviseinventory(),
-        getProductSalesReports() // *** FIXED FUNCTION CALL ***
+        Invoice.aggregate([
+            ...(Object.keys(storeFilter).length > 0 ? [{ $match: storeFilter }] : []),
+            { $group: { _id: null, total: { $sum: "$totalAmount" } } }
+        ]).then(result => toNum(result[0]?.total)),
+        Invoice.countDocuments(storeFilter),
+        Invoice.find(storeFilter).select("totalAmount").then(invoices => {
+            const sum = invoices.reduce((acc, invoice) => acc + toNum(invoice.totalAmount), 0);
+            return invoices.length > 0 ? sum / invoices.length : 0;
+        }),
+        Invoice.find(storeFilter).sort({ date: -1 }).limit(5),
+        Client.find().populate({
+            path: "invoices",
+            match: Object.keys(storeFilter).length > 0 ? storeFilter : {},
+        }),
+        Invoice.find({ ...storeFilter, paymentStatus: { $regex: /pending/i } }),
+        Invoice.find({ ...storeFilter, paymentStatus: { $regex: /pending/i } }).select("totalAmount").then(invoices => {
+            return invoices.reduce((acc, invoice) => acc + toNum(invoice.totalAmount), 0);
+        }),
+        Product.find({ ...storeFilter, quantity: { $lt: 5 } }),
+        Product.find({ ...storeFilter, quantity: 0 }),
+        Invoice.aggregate([
+            ...(Object.keys(storeFilter).length > 0 ? [{ $match: storeFilter }] : []),
+            {
+                $group: {
+                    _id: { $month: "$date" },
+                    totalAmount: { $sum: { $ifNull: ["$totalAmount", 0] } },
+                },
+            },
+        ]),
+        Invoice.aggregate([
+            {
+                $match: {
+                    ...storeFilter,
+                    date: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+                },
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$date" } },
+                    totalAmount: { $sum: { $ifNull: ["$totalAmount", 0] } },
+                },
+            },
+            { $sort: { _id: 1 } }
+        ]),
+        Payment.aggregate([
+            {
+                $match: {
+                    ...storeFilter,
+                    createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+                },
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    totalPaid: { $sum: { $ifNull: ["$amount", 0] } },
+                },
+            },
+            { $sort: { _id: 1 } }
+        ]),
+        Product.aggregate([
+            {
+                $match: {
+                    ...storeFilter,
+                    updatedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+                },
+            },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$updatedAt" } },
+                    totalQuantity: { $sum: { $ifNull: ["$quantity", 0] } },
+                },
+            },
+            { $sort: { _id: 1 } }
+        ]),
+        Payment.find(storeFilter).select("amount").then(payments => {
+            return payments.reduce((acc, payment) => acc + toNum(payment.amount), 0);
+        }),
+        Payment.countDocuments(storeFilter),
+        Payment.find(storeFilter).select("amount").then(payments => {
+            const total = payments.reduce((acc, payment) => acc + toNum(payment.amount), 0);
+            return payments.length > 0 ? total / payments.length : 0;
+        }),
+        Product.find(storeFilter).select("quantity").then(products => {
+            return products.reduce((acc, product) => acc + toNum(product.quantity), 0);
+        }),
+        Product.find(storeFilter).select("quantity name"),
+        Invoice.find(storeFilter).populate({
+            path: "products",
+            populate: {
+                path: "product",
+                model: "Product",
+            },
+        }).then(invoices => {
+            const reports = {};
+            invoices.forEach(invoice => {
+                const filteredProducts = invoice.products ? invoice.products.filter(p => p && p.product) : [];
+                filteredProducts.forEach((productItem) => {
+                    if (productItem.product && productItem.product.name) {
+                        const productId = productItem.product._id.toString();
+                        const productName = productItem.product.name;
+                        const amount = toNum(productItem.amount);
+                        const totalSales = reports[productId] ? reports[productId].totalSales + amount : amount;
+                        const totalOrders = reports[productId] ? reports[productId].totalOrders + 1 : 1;
+                        reports[productId] = { productId, productName, totalSales, totalOrders };
+                    }
+                });
+            });
+            return Object.values(reports);
+        })
     ]);
 
 

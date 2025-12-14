@@ -21,6 +21,8 @@ const user = require('./routes/LoginPage');
 const chartData = require('./routes/chartsdata');
 const notifications = require('./routes/notifications'); 
 const auth = require('./routes/auth.js');
+const store = require('./routes/Store');
+const twoFactor = require('./routes/twoFactor');
 
 const dbconnect = require('./middlewares/dB');
 
@@ -86,6 +88,8 @@ app.use('/api/clientroutes', clientportalRouter);
 app.use('/api/orders', orderRouter);
 app.use('/api/auth', auth);
 app.use('/api/notifications', notifications);
+app.use('/api/stores', store);
+app.use('/api/2fa', twoFactor);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

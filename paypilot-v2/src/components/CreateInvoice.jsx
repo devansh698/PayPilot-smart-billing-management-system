@@ -2,15 +2,17 @@ import React, { useState, useEffect } from "react";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { ArrowLeft, Save, Plus, Trash2, Calendar, FileText } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Calendar, FileText, Store } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import SearchableSelect from "./ui/SearchableSelect";
+import { useStore } from "../context/StoreContext";
 
 const CreateInvoice = () => {
   const navigate = useNavigate();
+  const { stores, isSuperAdmin, currentStore } = useStore();
 
   // State
   const [invoiceData, setInvoiceData] = useState({
@@ -19,6 +21,7 @@ const CreateInvoice = () => {
     date: new Date().toISOString().split('T')[0],
     notes: "",
     terms: "Payment due within 15 days. Thank you for your business.",
+    store: "",
   });
 
   const [clients, setClients] = useState([]);
@@ -37,15 +40,31 @@ const CreateInvoice = () => {
   const [taxRate, setTaxRate] = useState(18);
   const [discountRate, setDiscountRate] = useState(0);
 
+  const fetchProductsForStore = async (storeId) => {
+    try {
+      const storeFilter = storeId ? `&store=${storeId}` : '';
+      const productsRes = await api.get(`/product/?limit=1000${storeFilter}`);
+      setProducts(productsRes.data.products || []);
+    } catch (err) {
+      console.error("Failed to load products:", err);
+      toast.error("Failed to load products for selected store");
+    }
+  };
+
   // Load Data
   useEffect(() => {
+    // Set default store if not superadmin
+    if (!isSuperAdmin && currentStore) {
+      setInvoiceData(prev => ({ ...prev, store: currentStore._id }));
+    }
+    
     const fetchData = async () => {
       try {
+        const storeId = invoiceData.store || currentStore?._id;
+        const storeFilter = storeId ? `&store=${storeId}` : '';
         const [clientsRes, productsRes, invRes] = await Promise.all([
-          // Use limit=1000 to fetch all for the dropdown
           api.get("/client/?limit=1000"),
-          api.get("/product/?limit=1000"),
-          // NOTE: Endpoint likely needs to be /invoice/lastinvno based on backend structure
+          api.get(`/product/?limit=1000${storeFilter}`),
           api.get("/invoices/lastinvno")
         ]);
 
@@ -112,12 +131,20 @@ const CreateInvoice = () => {
   const handleSubmit = async () => {
     if (!invoiceData.clientId) return toast.error("Please select a client.");
     if (items.length === 0) return toast.error("Please add at least one line item.");
+    
+    // Validate store selection
+    const storeId = invoiceData.store || currentStore?._id;
+    if (!storeId) {
+      toast.error("Please select a store");
+      return;
+    }
 
     const payload = {
-      client: invoiceData.clientId, // Use 'client' key as expected by backend route
+      client: invoiceData.clientId,
       date: invoiceData.date,
       notes: invoiceData.notes,
       terms: invoiceData.terms,
+      store: storeId,
 
       products: items.map(i => ({
         product: i.productId,
@@ -183,26 +210,42 @@ const CreateInvoice = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                {/* <Label>Client</Label> */}
-                {/* <select
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={invoiceData.clientId}
-                  onChange={(e) => setInvoiceData({ ...invoiceData, clientId: e.target.value })}
-                >
-                  <option value="">Select a Client</option>
-                  {clients.map(c => (
-                    <option key={c._id} value={c._id}>{c.firstName} {c.lastName} ({c.email})</option>
-                  ))}
-                </select> */}
-                <SearchableSelect 
-                        label="Client"
-                        options={clients.map(c => ({ value: c._id, label: `${c.firstName} ${c.lastName} (${c.email})` }))}
-                        value={invoiceData.clientId}
-                        onChange={(val) => setInvoiceData({ ...invoiceData, clientId: val })}
-                        placeholder="Select Client..."
-                    />
+              {/* Store Selection - Required for superadmin */}
+              {isSuperAdmin && stores && stores.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="store">Store *</Label>
+                  <div className="relative">
+                    <Store className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
+                    <select
+                      id="store"
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-9 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      value={invoiceData.store}
+                      onChange={(e) => {
+                        setInvoiceData({ ...invoiceData, store: e.target.value });
+                        // Reload products for selected store
+                        fetchProductsForStore(e.target.value);
+                      }}
+                      required
+                    >
+                      <option value="">Select a store...</option>
+                      {stores.map(store => (
+                        <option key={store._id} value={store._id}>
+                          {store.name} - {store.address.city}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
 
+              <div className="space-y-2">
+                <SearchableSelect 
+                  label="Client *"
+                  options={clients.map(c => ({ value: c._id, label: `${c.firstName} ${c.lastName} (${c.email})` }))}
+                  value={invoiceData.clientId}
+                  onChange={(val) => setInvoiceData({ ...invoiceData, clientId: val })}
+                  placeholder="Select Client..."
+                />
               </div>
             </CardContent>
           </Card>

@@ -22,10 +22,14 @@ Router.get("/lastinvno", async (req, res) => {
 // Create new invoice (Kept existing stock deduction logic and added checks)
 Router.post("/", async (req, res) => {
   try {
-    const { client, products, subtotal, tax, totalAmount } = req.body;
+    const { client, products, subtotal, tax, totalAmount, store } = req.body;
 
     if (!client || !products || products.length === 0 || !totalAmount) {
          return res.status(400).json({ error: "Client, products, and totalAmount are required." });
+    }
+    
+    if (!store) {
+         return res.status(400).json({ error: "Store is required." });
     }
     
     // Check stock before creation
@@ -58,6 +62,7 @@ Router.post("/", async (req, res) => {
       subtotal,
       tax,
       totalAmount,
+      store,
     });
 
     await invoice.save();
@@ -82,12 +87,18 @@ Router.post("/", async (req, res) => {
 // Get all invoices with pagination, sorting, and filtering
 Router.get("/", async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy = 'date', sortOrder = 'desc', search = '', paymentStatus } = req.query;
+    const { page = 1, limit = 10, sortBy = 'date', sortOrder = 'desc', search = '', paymentStatus, store } = req.query;
 
     const sort = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
     
     const filter = {};
+    
+    // Filter by store if provided
+    if (store) {
+        filter.store = store;
+    }
+    
     if (search) {
         filter.$or = [
             { invoiceNo: { $regex: search, $options: 'i' } },

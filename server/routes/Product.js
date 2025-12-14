@@ -67,8 +67,12 @@ const validateProduct = (req, res, next) => {
 
 router.post("/", upload.single("image"), validateProduct, async (req, res) => {
   try {
-    const { name, price, description, category, brand, quantity } = req.validatedUpdateFields; 
-    const image = req.file ? req.file.filename : null;
+    const { name, price, description, category, brand, quantity, store } = req.body; 
+    const image = req.file ? `/uploads/${req.file.filename}` : req.body.image || '';
+
+    if (!store) {
+      return res.status(400).json({ error: "Store is required" });
+    }
 
     const product = new Product({
       name,
@@ -78,6 +82,7 @@ router.post("/", upload.single("image"), validateProduct, async (req, res) => {
       brand,
       image,
       quantity: quantity || 0,
+      store,
     });
 
     await product.save();
@@ -85,19 +90,25 @@ router.post("/", upload.single("image"), validateProduct, async (req, res) => {
     res.json({ message: "Product created successfully", product });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: "Internal Server Error", details: error.message });
   }
 });
 
 // Get all products with pagination, sorting, and filtering
 router.get("/", async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', search = '', category, brand } = req.query;
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', search = '', category, brand, store } = req.query;
 
     const sort = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
     const filter = {};
+    
+    // Filter by store if provided
+    if (store) {
+        filter.store = store;
+    }
+    
     if (search) {
         filter.$or = [
             { name: { $regex: search, $options: 'i' } },

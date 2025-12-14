@@ -13,6 +13,11 @@ const orderSchema = new mongoose.Schema({
     tax: { type: Number, required: true },
     totalAmount: { type: Number, required: true },
     orderDate: { type: Date, default: Date.now },
+    store: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Store',
+        required: true,
+    },
 });
 
 module.exports = mongoose.model('Order', orderSchema);

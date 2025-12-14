@@ -8,6 +8,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 
+
 const ClientList = () => {
   const [clients, setClients] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -15,6 +16,7 @@ const ClientList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const navigate = useNavigate();
+  const PAGE_LIMIT = 10;
 
   useEffect(() => {
     // Re-fetch clients whenever currentPage or searchTerm changes
@@ -25,10 +27,9 @@ const ClientList = () => {
     setLoading(true);
     try {
       // Use search term and pagination in the API call
-      const res = await api.get(`/client?page=${page}&limit=10&search=${search}`);
+      const res = await api.get(`/client?page=${page}&limit=${PAGE_LIMIT}&search=${search}`);
       setClients(res.data.clients || []);
       setTotalPages(res.data.totalPages || 1);
-      // Client-side filtering logic removed - handled by backend
     } catch (error) {
       toast.error("Failed to fetch clients");
     } finally {
@@ -36,28 +37,37 @@ const ClientList = () => {
     }
   };
 
-  // Stats calculation is now based on all fetched clients for the current page, 
-  // but for dashboard stats (like Total Clients), it should ideally be based on totalClients count from pagination response.
-  const totalClients = clients.length; // This should be updated from the API response's totalClients count
-  const verifiedClients = clients.filter(c => c.verified).length;
-
-  // Function to navigate directly to edit page
   const handleEdit = (id) => {
-    navigate(`/edit-client/${id}`); // Assuming you have an edit route
+    navigate(`/edit-client/${id}`); // Assumes /edit-client/:id route
   }
 
-  // Function to handle delete (implementing the backend logic)
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this client?")) {
         try {
-            await api.delete(`/client/${id}`);
+            // FIX: Use the correct DELETE endpoint
+            await api.delete(`/client/${id}`); 
             toast.success("Client deleted successfully");
-            fetchClients(currentPage, searchTerm); // Refresh list
+            if (clients.length === 1 && currentPage > 1) {
+                setCurrentPage(currentPage - 1);
+            } else {
+                fetchClients(currentPage, searchTerm);
+            }
         } catch (error) {
             toast.error("Failed to delete client");
         }
     }
   }
+  
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1); // Reset to page 1 on new search
+  };
+
+
+  // Stats calculation is now based on all fetched clients for the current page
+  const totalClients = clients.length;
+  const verifiedClients = clients.filter(c => c.verified).length;
+  // NOTE: This component does not know the true total count across all pages, which would require a separate, non-paginated endpoint.
 
   return (
     <div className="space-y-6">
@@ -66,20 +76,20 @@ const ClientList = () => {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Clients</h1>
           <p className="text-muted-foreground mt-1">Manage your client relationships.</p>
         </div>
-        <Button onClick={() => navigate("/add-client")}>
+        <Button onClick={() => navigate("/add-client")}> {/* FIX: Add Client Navigation */}
           <Plus size={16} className="mr-2" />
           Add Client
         </Button>
       </div>
 
-      {/* Stats Cards - Note: Total Clients count should use totalClients from API response for accuracy */}
+      {/* Stats Cards - Note: Total Clients count is only for the current page's data */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Total Clients</p>
+          <p className="text-sm text-muted-foreground">Clients on Page</p>
           <p className="text-2xl font-bold mt-2">{totalClients}</p> 
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Verified Clients</p>
+          <p className="text-sm text-muted-foreground">Verified on Page</p>
           <p className="text-2xl font-bold mt-2 text-green-600">{verifiedClients}</p>
         </Card>
         {/* Placeholder stats as per reference */}
@@ -101,11 +111,7 @@ const ClientList = () => {
               placeholder="Search clients..."
               className="pl-9"
               value={searchTerm}
-              // Set search term, which triggers useEffect to fetch data
-              onChange={(e) => { 
-                setSearchTerm(e.target.value);
-                setCurrentPage(1); // Reset to page 1 on new search
-              }}
+              onChange={handleSearchChange}
             />
           </div>
         </div>
@@ -121,6 +127,20 @@ const ClientList = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
+              {loading && (
+                <tr>
+                  <td colSpan="4" className="px-6 py-8 text-center text-muted-foreground">
+                    Loading clients...
+                  </td>
+                </tr>
+              )}
+              {!loading && clients.length === 0 && (
+                <tr>
+                  <td colSpan="4" className="px-6 py-8 text-center text-muted-foreground">
+                    No clients found.
+                  </td>
+                </tr>
+              )}
               {clients.map((client) => ( // Use 'clients' array directly
                 <tr key={client._id} className="hover:bg-muted/50 transition-colors">
                   <td className="px-6 py-4">
@@ -155,20 +175,6 @@ const ClientList = () => {
                   </td>
                 </tr>
               ))}
-              {clients.length === 0 && !loading && (
-                <tr>
-                  <td colSpan="4" className="px-6 py-8 text-center text-muted-foreground">
-                    No clients found.
-                  </td>
-                </tr>
-              )}
-               {loading && (
-                <tr>
-                  <td colSpan="4" className="px-6 py-8 text-center text-muted-foreground">
-                    Loading clients...
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>

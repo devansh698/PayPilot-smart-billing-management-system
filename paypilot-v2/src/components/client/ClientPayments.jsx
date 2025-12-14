@@ -1,76 +1,92 @@
-import React, { useState, useEffect } from "react";
-import api from "../../api";
-import ClientLayout from "./ClientLayout";
-import { Search, CreditCard } from "lucide-react";
-import { Card } from "../ui/card";
-import { Input } from "../ui/input";
-import { Badge } from "../ui/badge";
+import React, { useState, useEffect } from 'react';
+import { Container, Table, Button, Card, CardBody, Badge, Alert } from 'reactstrap';
+import api from '../../api';
+import { toast } from 'react-toastify';
+import { FiDollarSign, FiRefreshCw } from 'react-icons/fi';
 
 const ClientPayments = () => {
-  const [payments, setPayments] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
+    const [payments, setPayments] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    
+    const PAGE_LIMIT = 10;
 
-  useEffect(() => {
-    api.get("/client/payments").then(res => setPayments(res.data)).catch(console.error);
-  }, []);
+    const fetchPayments = async () => {
+        setLoading(true);
+        try {
+            // Fetch payments from the client portal route
+            const res = await api.get(`/clients/payments?page=${currentPage}&limit=${PAGE_LIMIT}&sortBy=createdAt&sortOrder=desc`);
+            
+            setPayments(res.data.payments || []);
+            setTotalPages(res.data.totalPages || 1);
 
-  const filtered = payments.filter(p => p.invoiceNo?.includes(searchTerm));
+        } catch (error) {
+            toast.error("Failed to fetch payments.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  return (
-    <ClientLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Payment History</h1>
-          <p className="text-muted-foreground mt-1">View all your past transactions.</p>
-        </div>
+    useEffect(() => {
+        fetchPayments();
+    }, [currentPage]);
 
-        <Card>
-            <div className="p-6 border-b border-border">
-                <div className="relative max-w-sm">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
-                    <Input
-                        placeholder="Search Invoice #..."
-                        className="pl-9"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-            </div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-muted/50 text-muted-foreground font-medium">
-                        <tr>
-                            <th className="px-6 py-3">Date</th>
-                            <th className="px-6 py-3">Invoice #</th>
-                            <th className="px-6 py-3">Method</th>
-                            <th className="px-6 py-3">Amount</th>
-                            <th className="px-6 py-3">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                        {filtered.map((pay) => (
-                            <tr key={pay._id} className="hover:bg-muted/50 transition-colors">
-                                <td className="px-6 py-4 text-muted-foreground">{new Date(pay.date).toLocaleDateString()}</td>
-                                <td className="px-6 py-4 font-medium">{pay.invoiceNo}</td>
-                                <td className="px-6 py-4 flex items-center gap-2">
-                                    <CreditCard size={14} className="text-muted-foreground"/> {pay.method}
-                                </td>
-                                <td className="px-6 py-4 font-bold text-green-600">${pay.amount}</td>
-                                <td className="px-6 py-4">
-                                    <Badge variant="success">Success</Badge>
-                                </td>
-                            </tr>
-                        ))}
-                         {filtered.length === 0 && (
-                             <tr><td colSpan="5" className="px-6 py-8 text-center text-muted-foreground">No payments found.</td></tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </Card>
-      </div>
-    </ClientLayout>
-  );
+    const getMethodColor = (method) => {
+        const m = method ? method.toLowerCase() : '';
+        if (m.includes('card') || m.includes('razorpay')) return 'primary';
+        if (m.includes('cash')) return 'success';
+        return 'info';
+    };
+
+    if (loading) return <Container className="mt-5"><p>Loading payment history...</p></Container>;
+
+    return (
+        <Container className="mt-5">
+            <h1>Payment History</h1>
+            
+            <Card className="shadow-sm border-0 mt-4">
+                <CardBody>
+                    {payments.length === 0 ? (
+                        <Alert color="info">No payments recorded yet.</Alert>
+                    ) : (
+                        <Table hover responsive>
+                            <thead className="table-light">
+                                <tr>
+                                    <th>Payment ID</th>
+                                    <th>Invoice ID</th>
+                                    <th>Amount</th>
+                                    <th>Method</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {payments.map(payment => (
+                                    <tr key={payment._id}>
+                                        <td className="fw-bold">#{payment.paymentId?.slice(-6).toUpperCase() || payment._id.slice(-6).toUpperCase()}</td>
+                                        {/* NOTE: Invoice is not populated in this backend route, showing ID */}
+                                        <td>{payment.invoiceId}</td> 
+                                        <td className="text-success fw-bold">₹{payment.amount.toFixed(2)}</td>
+                                        <td><Badge color={getMethodColor(payment.paymentMethod)}>{payment.paymentMethod}</Badge></td>
+                                        <td>{new Date(payment.createdAt).toLocaleDateString()}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </Table>
+                    )}
+                    
+                    {/* Pagination Controls */}
+                    <div className="d-flex justify-content-between align-items-center mt-3">
+                        <small className="text-muted">Page {currentPage} of {totalPages}</small>
+                        <div>
+                            <Button size="sm" color="secondary" outline className="me-2" onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1}>Previous</Button>
+                            <Button size="sm" color="secondary" outline onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages}>Next</Button>
+                        </div>
+                    </div>
+                </CardBody>
+            </Card>
+        </Container>
+    );
 };
 
 export default ClientPayments;

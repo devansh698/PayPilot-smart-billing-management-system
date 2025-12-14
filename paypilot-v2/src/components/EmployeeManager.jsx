@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import api from "../api";
+import { useNavigate } from "react-router-dom";
 import { Search, User, Mail, Shield, Trash2, Plus, Edit } from "lucide-react";
 import { toast } from "react-toastify";
 import { Card } from "./ui/card";
@@ -8,11 +9,13 @@ import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 
 const EmployeeManager = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const PAGE_LIMIT = 10;
 
   useEffect(() => {
     fetchUsers(currentPage, searchTerm);
@@ -21,10 +24,9 @@ const EmployeeManager = () => {
   const fetchUsers = async (page, search) => {
     setLoading(true);
     try {
-      // FIX 1: Use the correct backend route: /loginpage
-      // FIX 2: Implement search and pagination
-      const res = await api.get(`/user?page=${page}&limit=10&search=${search}`); 
-      setUsers(res.data.users || []); // FIX 3: Access 'users' array from paginated response
+      // FIX 1: Use the correct backend route: /user
+      const res = await api.get(`/user?page=${page}&limit=${PAGE_LIMIT}&search=${search}`); 
+      setUsers(res.data.users || []); 
       setTotalPages(res.data.totalPages || 1);
     } catch (error) {
       console.error("Failed to fetch users", error);
@@ -37,7 +39,7 @@ const EmployeeManager = () => {
   const handleDelete = async (id) => {
       if(window.confirm("Are you sure you want to permanently remove this user?")) {
         try {
-            // FIX 4: Correct delete endpoint
+            // FIX 1: Correct delete endpoint
             await api.delete(`/user/${id}`); 
             toast.success("User removed");
             fetchUsers(currentPage, searchTerm);
@@ -47,8 +49,6 @@ const EmployeeManager = () => {
       }
   };
 
-  // Removed filteredUsers as filtering is now done by the backend
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -56,8 +56,7 @@ const EmployeeManager = () => {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Employees</h1>
           <p className="text-muted-foreground mt-1">Manage system users and permissions.</p>
         </div>
-        {/* Assuming /register is the route for adding a new user/employee */}
-        <Button onClick={() => console.log("Navigate to Add Employee/Register form")}> 
+        <Button onClick={() => navigate('/add-employee')}> 
             <Plus size={16} className="mr-2" /> Add Employee
         </Button>
       </div>
@@ -72,7 +71,7 @@ const EmployeeManager = () => {
                     value={searchTerm}
                     onChange={(e) => {
                         setSearchTerm(e.target.value);
-                        setCurrentPage(1); // Reset to page 1 on new search
+                        setCurrentPage(1); 
                     }}
                 />
             </div>
@@ -94,7 +93,6 @@ const EmployeeManager = () => {
                 </tr>
               ) : users.length > 0 ? (
                 users.map((user) => (
-                    // Note: Backend returns 'username' not 'name', updated rendering.
                     <tr key={user._id} className="hover:bg-muted/50 transition-colors">
                         <td className="px-6 py-4 font-medium flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center">
@@ -111,7 +109,7 @@ const EmployeeManager = () => {
                         </td>
                         <td className="px-6 py-4 text-right">
                             <div className="flex justify-end gap-2">
-                                <Button variant="ghost" size="icon" onClick={() => console.log(`Edit user ${user._id}`)}>
+                                <Button variant="ghost" size="icon" onClick={() => navigate(`/edit-employee/${user._id}`)}>
                                     <Edit size={16} className="text-blue-500" />
                                 </Button>
                                 <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(user._id)}>

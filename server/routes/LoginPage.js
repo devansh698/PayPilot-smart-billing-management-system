@@ -377,4 +377,84 @@ router.patch("/:id", authMiddleware, async (req, res) => {
   }
 });
 
+// Forgot Password - Send OTP
+router.post("/forgot-password", async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({ status: 400, message: "Email is required" });
+    }
+
+    try {
+        const userDoc = await User.findOne({ email: email.toLowerCase() });
+        if (!userDoc) {
+            return res.status(404).json({ status: 404, message: "User not found" });
+        }
+
+        const otp = generateRandomNumber();
+        otpStorage[email.toLowerCase()] = { otp: otp, expiresAt: Date.now() + 10 * 60 * 1000 };
+        
+        const { getPasswordResetTemplate } = require("../helpers/emailTemplates");
+        const Auth = { user: process.env.USER1, pass: process.env.PASS1 };
+        const mail = nodemailer.createTransport({
+            host: "smtp.gmail.com",
+            port: 587,
+            secure: false,
+            auth: Auth,
+            timeout: 500000,
+        });
+
+        await mail.sendMail({
+            from: `PayPilot <${process.env.USER1}>`,
+            to: email,
+            subject: "PayPilot - Password Reset",
+            html: getPasswordResetTemplate(otp),
+        });
+
+        res.status(200).json({ status: 200, message: "Password reset OTP sent to your email" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ status: 500, message: "Internal Server Error", details: err.message });
+    }
+});
+
+// Reset Password - Verify OTP and set new password
+router.post("/reset-password", async (req, res) => {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+        return res.status(400).json({ status: 400, message: "Email, OTP, and new password are required" });
+    }
+
+    if (newPassword.length < 6) {
+        return res.status(400).json({ status: 400, message: "Password must be at least 6 characters" });
+    }
+
+    try {
+        const lowerCaseEmail = email.toLowerCase();
+        const storedOtp = otpStorage[lowerCaseEmail];
+
+        if (!storedOtp || Date.now() > storedOtp.expiresAt) {
+            delete otpStorage[lowerCaseEmail];
+            return res.status(400).json({ status: 400, message: "Invalid or expired OTP" });
+        }
+
+        if (storedOtp.otp !== otp.toString()) {
+            return res.status(400).json({ status: 400, message: "Invalid OTP" });
+        }
+
+        const userDoc = await User.findOne({ email: lowerCaseEmail });
+        if (!userDoc) {
+            return res.status(404).json({ status: 404, message: "User not found" });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await User.findByIdAndUpdate(userDoc._id, { password: hashedPassword });
+
+        delete otpStorage[lowerCaseEmail];
+        res.status(200).json({ status: 200, message: "Password reset successfully" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ status: 500, message: "Internal Server Error", details: err.message });
+    }
+});
+
 module.exports = router;

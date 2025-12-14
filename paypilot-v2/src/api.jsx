@@ -1,4 +1,4 @@
-// src/api.js
+// src/api.jsx
 import axios from 'axios';
 
 const api = axios.create({
@@ -14,6 +14,7 @@ api.interceptors.request.use(config => {
     return config;
 });
 
+// Admin/Employee Profile fetch
 export const fetchUserProfile = () => api.get('/auth/me',{
     headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -22,6 +23,10 @@ export const fetchUserProfile = () => api.get('/auth/me',{
 export const fetchProducts = () => api.get('/product');
 export const login = (credentials) => api.post('/auth/login', credentials);
 export const register= (userData) => api.post('/auth/register', userData);
-export const fetchNotifications = () => api.get('/clientportal/notifications');
-export const markNotificationAsRead = (id) => api.put(`/clientportal/notifications/${id}/read`);
+
+// FIX: Update notification endpoints to use the base route with pagination/filtering
+export const fetchNotifications = (params) => api.get('/notifications', { params });
+export const markNotificationAsRead = (id) => api.put(`/notifications/${id}/read`);
+export const markAllNotificationsAsRead = (storeId) => api.put('/notifications/read-all', { store: storeId });
+
 export default api;
